@@ -11,6 +11,8 @@ tmux session manager for AI agent workflows. Visual pane border attention, live 
 
 **[Documentation & demo →](https://jamditis.github.io/jawn-tmux)**
 
+![jt status — two sessions, one active (green) and one silent (amber)](docs/screenshot.png)
+
 ---
 
 ## What it does
