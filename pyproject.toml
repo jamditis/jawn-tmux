@@ -8,6 +8,9 @@ description = "tmux session manager for the jawn network"
 version = "0.1.0"
 requires-python = ">=3.11"
 
+[project.optional-dependencies]
+test = ["pytest"]
+
 [project.scripts]
 jt = "jt.cli:main"
 jtd = "jt.daemon:run"
