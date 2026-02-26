@@ -1,4 +1,5 @@
 # jt/tmux.py
+import shlex
 import subprocess
 from typing import Optional
 
@@ -47,7 +48,7 @@ def new_session(name: str, command: str, cwd: Optional[str] = None) -> bool:
     if cwd:
         args += ['-c', cwd]
     if command:
-        args.append(command)
+        args += shlex.split(command)
     return subprocess.run(args, capture_output=True).returncode == 0
 
 
@@ -63,8 +64,9 @@ def has_session(name: str) -> bool:
     ).returncode == 0
 
 
-def set_pane_style(session: str, pane: str, fg: str) -> None:
-    subprocess.run(
+def set_pane_style(session: str, pane: str, fg: str) -> bool:
+    result = subprocess.run(
         ['tmux', 'select-pane', '-t', f'{session}:{pane}', '-P', f'fg={fg}'],
         capture_output=True,
     )
+    return result.returncode == 0

@@ -51,8 +51,10 @@ def test_has_session():
 
 def test_set_pane_style_calls_tmux():
     with patch('subprocess.run') as mock_run:
-        tmux.set_pane_style('morning-wake', '0', '#3fb950')
+        mock_run.return_value = make_result(returncode=0)
+        result = tmux.set_pane_style('morning-wake', '0', '#3fb950')
     mock_run.assert_called_once()
     args = mock_run.call_args[0][0]
     assert 'select-pane' in args
     assert 'fg=#3fb950' in args
+    assert result is True
