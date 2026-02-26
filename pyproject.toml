@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jawn-tmux"
+version = "0.1.0"
+requires-python = ">=3.11"
+
+[project.scripts]
+jt = "jt.cli:main"
+jtd = "jt.daemon:run"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.setuptools.packages.find]
+include = ["jt*"]
