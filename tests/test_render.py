@@ -63,3 +63,13 @@ def test_render_table_all_statuses_no_crash():
             }
         }
         render.render_table(data)  # should not raise
+
+
+def test_format_elapsed_zero():
+    assert render.format_elapsed(0) == '0s'
+
+
+def test_render_session_row_no_output_tail():
+    info = {'status': 'active', 'elapsed_secs': 10, 'command': 'claude'}
+    row = render.render_session_row('test', info)
+    assert 'test' in row  # no crash, no tail lines
