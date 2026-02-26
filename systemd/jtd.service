@@ -7,7 +7,6 @@ Type=simple
 ExecStart=/home/jamditis/.local/bin/jtd
 Restart=always
 RestartSec=5
-User=jamditis
 Environment=HOME=/home/jamditis
 
 [Install]
