@@ -57,3 +57,9 @@ def test_nodes_shows_local_and_skips_unreachable():
          patch('jt.nodes.fetch_remote_state', return_value=None):
         output = run_jt('nodes')
     assert 'officejawn' in output or 'unreachable' in output
+
+
+def test_attach_calls_tmux():
+    with patch('subprocess.run') as mock:
+        run_jt('attach', 'mysession')
+    mock.assert_called_once_with(['tmux', 'attach', '-t', 'mysession'])

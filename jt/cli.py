@@ -47,9 +47,6 @@ def cmd_popup(args):
         if ch == 'q':
             break
         elif ch == 'k':
-            fd = sys.stdin.fileno()
-            old = termios.tcgetattr(fd)
-            termios.tcsetattr(fd, termios.TCSADRAIN, old)
             name = input('\n  session name: ').strip()
             if name:
                 ok = tmux.kill_session(name)
@@ -70,9 +67,10 @@ def cmd_sidebar(args):
         action = 'off' if has_sidebar else 'on'
 
     if action == 'on' and not has_sidebar:
-        subprocess.run(['tmux', 'split-window', '-h', '-l', '36', '-d', 'jt watch'],
-                       capture_output=True)
-        subprocess.run(['tmux', 'select-pane', '-T', 'jt-sidebar'], capture_output=True)
+        r = subprocess.run(['tmux', 'split-window', '-h', '-l', '36', '-d', 'jt watch'],
+                           capture_output=True)
+        if r.returncode == 0:
+            subprocess.run(['tmux', 'select-pane', '-T', 'jt-sidebar'], capture_output=True)
     elif action == 'off' and has_sidebar:
         result = subprocess.run(
             ['tmux', 'list-panes', '-F', '#{pane_id} #{pane_title}'],
