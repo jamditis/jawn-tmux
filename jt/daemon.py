@@ -78,8 +78,8 @@ def build_session_state(raw_sessions: list[dict], now: float) -> dict:
             'name': name,
             'status': status,
             'command': command,
-            'elapsed_secs': int(now - s['created']),
-            'last_activity_secs': int(now - s['last_activity']),
+            'elapsed_secs': max(0, int(now - s['created'])),
+            'last_activity_secs': max(0, int(now - s['last_activity'])),
             'output_tail': output_tail,
             'output_file': output_file,
         }
