@@ -1,0 +1,1286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>jawn-tmux — tmux agent session manager</title>
+  <meta name="description" content="Visual pane attention, live sidebar, and cross-node status for AI agent tmux sessions. Runs on Linux ARM64, x86, and WSL2.">
+  <meta property="og:title" content="jawn-tmux — tmux agent session manager">
+  <meta property="og:description" content="Visual pane attention, live sidebar, and cross-node status for AI agent tmux sessions.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://jamditis.github.io/jawn-tmux">
+  <meta property="og:image" content="https://jamditis.github.io/jawn-tmux/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="twitter:card" content="summary_large_image">
+  <meta property="twitter:title" content="jawn-tmux — tmux agent session manager">
+  <meta property="twitter:description" content="Visual pane attention, live sidebar, and cross-node status for AI agent tmux sessions.">
+  <meta property="twitter:image" content="https://jamditis.github.io/jawn-tmux/og-image.png">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg:        #080c08;
+      --bg-card:   #0d120d;
+      --bg-panel:  #101510;
+      --border:    #1e2a1e;
+      --green:     #3fb950;
+      --green-dim: #2a7d38;
+      --amber:     #d29922;
+      --red:       #f85149;
+      --gray:      #484f58;
+      --text:      #c9d1c8;
+      --text-dim:  #6a7a69;
+      --text-faint:#3a4a39;
+      --mono:      'IBM Plex Mono', monospace;
+      --sans:      'IBM Plex Sans', sans-serif;
+      --glow-g:    0 0 20px rgba(63,185,80,0.3);
+      --glow-a:    0 0 20px rgba(210,153,34,0.3);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 14px;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* scanline overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.06) 2px,
+        rgba(0,0,0,0.06) 4px
+      );
+      pointer-events: none;
+      z-index: 1000;
+    }
+
+    /* noise texture */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 999;
+      opacity: 0.4;
+    }
+
+    /* ─── NAV ─── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 2rem;
+      height: 48px;
+      background: rgba(8,12,8,0.92);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(8px);
+    }
+
+    .nav-brand {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--green);
+      letter-spacing: 0.05em;
+      text-decoration: none;
+    }
+
+    .nav-brand span { color: var(--text-dim); font-weight: 400; }
+
+    nav ul {
+      display: flex;
+      gap: 2rem;
+      list-style: none;
+    }
+
+    nav a {
+      color: var(--text-dim);
+      text-decoration: none;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      transition: color 0.15s;
+    }
+
+    nav a:hover { color: var(--green); }
+
+    .nav-gh {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-dim) !important;
+      border: 1px solid var(--border);
+      padding: 4px 12px;
+      border-radius: 4px;
+      font-size: 11px !important;
+      transition: border-color 0.15s, color 0.15s !important;
+    }
+
+    .nav-gh:hover {
+      border-color: var(--green) !important;
+      color: var(--green) !important;
+    }
+
+    /* ─── HERO ─── */
+    .hero {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      align-items: center;
+      gap: 4rem;
+      padding: 6rem 4rem 4rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .hero-text { animation: fadeUp 0.8s ease both; }
+
+    .hero-eyebrow {
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--green);
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .hero-eyebrow::before {
+      content: '';
+      display: block;
+      width: 24px;
+      height: 1px;
+      background: var(--green);
+    }
+
+    .hero h1 {
+      font-family: var(--mono);
+      font-size: clamp(2.4rem, 5vw, 4rem);
+      font-weight: 700;
+      line-height: 1.05;
+      color: #e8f0e7;
+      margin-bottom: 1.5rem;
+      letter-spacing: -0.02em;
+    }
+
+    .hero h1 em {
+      font-style: normal;
+      color: var(--green);
+      position: relative;
+    }
+
+    .hero-desc {
+      font-family: var(--sans);
+      font-size: 16px;
+      line-height: 1.7;
+      color: var(--text-dim);
+      max-width: 460px;
+      margin-bottom: 2.5rem;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 24px;
+      background: var(--green);
+      color: #050805;
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      border-radius: 4px;
+      letter-spacing: 0.03em;
+      transition: background 0.15s, box-shadow 0.15s;
+    }
+
+    .btn-primary:hover {
+      background: #4dcf61;
+      box-shadow: var(--glow-g);
+    }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 24px;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      font-family: var(--mono);
+      font-size: 13px;
+      text-decoration: none;
+      border-radius: 4px;
+      letter-spacing: 0.03em;
+      transition: border-color 0.15s, color 0.15s;
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--green);
+      color: var(--green);
+    }
+
+    .hero-badges {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 2rem;
+    }
+
+    .hero-badges img { height: 20px; }
+
+    /* ─── TERMINAL DEMO SVG ─── */
+    .hero-demo {
+      animation: fadeUp 0.8s 0.2s ease both;
+    }
+
+    .term-window {
+      background: #0a0f0a;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(63,185,80,0.05);
+      font-size: 12px;
+    }
+
+    .term-bar {
+      background: #131813;
+      border-bottom: 1px solid var(--border);
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .term-dot {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+    }
+
+    .term-title {
+      font-size: 11px;
+      color: var(--text-faint);
+      letter-spacing: 0.05em;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    /* ─── TMUX LAYOUT SVG ─── */
+    .tmux-svg {
+      width: 100%;
+      display: block;
+    }
+
+    /* ─── SECTIONS ─── */
+    section {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 5rem 4rem;
+    }
+
+    .section-label {
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--green);
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-label::before {
+      content: '';
+      display: block;
+      width: 16px;
+      height: 1px;
+      background: var(--green);
+    }
+
+    h2 {
+      font-family: var(--mono);
+      font-size: clamp(1.6rem, 3vw, 2.4rem);
+      font-weight: 700;
+      color: #e8f0e7;
+      line-height: 1.1;
+      margin-bottom: 1rem;
+      letter-spacing: -0.02em;
+    }
+
+    .section-lead {
+      font-family: var(--sans);
+      font-size: 16px;
+      color: var(--text-dim);
+      line-height: 1.7;
+      max-width: 600px;
+      margin-bottom: 3rem;
+    }
+
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 0;
+    }
+
+    /* ─── FEATURE CARDS ─── */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      margin-top: 3rem;
+    }
+
+    .feature {
+      background: var(--bg-card);
+      padding: 2rem;
+      transition: background 0.2s;
+    }
+
+    .feature:hover { background: var(--bg-panel); }
+
+    .feature-icon {
+      width: 36px;
+      height: 36px;
+      margin-bottom: 1rem;
+    }
+
+    .feature h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #e8f0e7;
+      margin-bottom: 0.5rem;
+      letter-spacing: -0.01em;
+    }
+
+    .feature p {
+      font-family: var(--sans);
+      font-size: 13px;
+      color: var(--text-dim);
+      line-height: 1.6;
+    }
+
+    /* ─── STATUS INDICATORS ─── */
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-top: 2rem;
+    }
+
+    .status-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1.25rem 1rem;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .status-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+    }
+
+    .status-card.active::before  { background: var(--green); }
+    .status-card.silent::before  { background: var(--amber); }
+    .status-card.done::before    { background: var(--gray);  }
+    .status-card.error::before   { background: var(--red);   }
+
+    .status-card .color-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      margin: 0 auto 0.5rem;
+    }
+
+    .status-card.active .color-dot  { background: var(--green); box-shadow: 0 0 8px var(--green); }
+    .status-card.silent .color-dot  { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
+    .status-card.done .color-dot    { background: var(--gray);  }
+    .status-card.error .color-dot   { background: var(--red);   box-shadow: 0 0 8px var(--red);   }
+
+    .status-card .label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      display: block;
+      margin-bottom: 0.25rem;
+    }
+
+    .status-card.active .label  { color: var(--green); }
+    .status-card.silent .label  { color: var(--amber); }
+    .status-card.done .label    { color: var(--gray);  }
+    .status-card.error .label   { color: var(--red);   }
+
+    .status-card .condition {
+      font-family: var(--sans);
+      font-size: 11px;
+      color: var(--text-dim);
+      line-height: 1.4;
+    }
+
+    /* ─── ARCHITECTURE ─── */
+    .arch-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      margin-top: 2rem;
+    }
+
+    .arch-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 2rem;
+    }
+
+    .arch-box.highlight {
+      border-color: var(--green-dim);
+      background: rgba(63,185,80,0.04);
+    }
+
+    .arch-box h3 {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      color: var(--green);
+      margin-bottom: 0.5rem;
+    }
+
+    .arch-box .subtitle {
+      font-family: var(--sans);
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-bottom: 1rem;
+    }
+
+    .arch-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .arch-list li {
+      font-family: var(--sans);
+      font-size: 12px;
+      color: var(--text-dim);
+      padding-left: 1rem;
+      position: relative;
+    }
+
+    .arch-list li::before {
+      content: '→';
+      position: absolute;
+      left: 0;
+      color: var(--green-dim);
+      font-size: 11px;
+    }
+
+    .arch-arrow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-faint);
+      font-size: 20px;
+    }
+
+    .arch-flow {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 1rem;
+      align-items: center;
+      margin-top: 2rem;
+    }
+
+    /* ─── CODE BLOCKS ─── */
+    .code-block {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+      margin: 1.5rem 0;
+    }
+
+    .code-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 16px;
+      background: #131813;
+      border-bottom: 1px solid var(--border);
+      font-size: 11px;
+      color: var(--text-faint);
+    }
+
+    .code-body {
+      padding: 1.25rem 1.5rem;
+      overflow-x: auto;
+    }
+
+    .code-body code {
+      font-family: var(--mono);
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--text);
+      white-space: pre;
+    }
+
+    .code-body .cmd { color: var(--green); }
+    .code-body .cmt { color: var(--text-faint); }
+    .code-body .str { color: var(--amber); }
+
+    /* ─── COMMANDS TABLE ─── */
+    .cmd-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 2rem;
+    }
+
+    .cmd-table thead tr {
+      border-bottom: 1px solid var(--border);
+    }
+
+    .cmd-table th {
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-faint);
+      text-align: left;
+      padding: 0.5rem 1rem 0.75rem;
+    }
+
+    .cmd-table td {
+      padding: 0.65rem 1rem;
+      border-bottom: 1px solid rgba(30,42,30,0.6);
+      font-size: 13px;
+      vertical-align: top;
+    }
+
+    .cmd-table tr:last-child td { border-bottom: none; }
+
+    .cmd-table tr:hover td { background: rgba(63,185,80,0.03); }
+
+    .cmd-table .cmd-name {
+      color: var(--green);
+      font-family: var(--mono);
+      white-space: nowrap;
+    }
+
+    .cmd-table .cmd-arg {
+      color: var(--amber);
+    }
+
+    .cmd-table .cmd-desc {
+      font-family: var(--sans);
+      color: var(--text-dim);
+      font-size: 12px;
+    }
+
+    /* ─── INSTALL SECTION ─── */
+    .install-steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      margin-top: 2rem;
+    }
+
+    .install-step {
+      background: var(--bg-card);
+      padding: 1.5rem;
+    }
+
+    .step-num {
+      font-size: 11px;
+      color: var(--text-faint);
+      margin-bottom: 0.5rem;
+    }
+
+    .step-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #e8f0e7;
+      margin-bottom: 0.75rem;
+    }
+
+    .step-code {
+      font-size: 11px;
+      color: var(--green);
+      background: var(--bg-panel);
+      padding: 0.5rem 0.75rem;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      white-space: pre;
+      overflow-x: auto;
+    }
+
+    /* ─── NODES SECTION ─── */
+    .nodes-diagram {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      justify-content: center;
+      margin: 2rem 0;
+      flex-wrap: wrap;
+    }
+
+    .node-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem 1.5rem;
+      text-align: center;
+      min-width: 140px;
+    }
+
+    .node-box.primary {
+      border-color: var(--green-dim);
+      background: rgba(63,185,80,0.04);
+    }
+
+    .node-name {
+      font-size: 12px;
+      font-weight: 600;
+      color: #e8f0e7;
+      margin-bottom: 0.25rem;
+    }
+
+    .node-role {
+      font-family: var(--sans);
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+
+    .node-connector {
+      color: var(--text-faint);
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* ─── FOOTER ─── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 3rem 4rem;
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .footer-brand {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--green);
+    }
+
+    .footer-brand span { color: var(--text-faint); font-weight: 400; }
+
+    .footer-links {
+      display: flex;
+      gap: 2rem;
+      list-style: none;
+    }
+
+    .footer-links a {
+      font-size: 12px;
+      color: var(--text-dim);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+
+    .footer-links a:hover { color: var(--green); }
+
+    /* ─── ANIMATIONS ─── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes pulseDot {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+
+    /* pane border animation */
+    @keyframes borderActive {
+      0%, 40%  { stroke: #3fb950; filter: drop-shadow(0 0 4px #3fb950); }
+      50%, 90% { stroke: #d29922; filter: drop-shadow(0 0 4px #d29922); }
+      100%     { stroke: #3fb950; filter: drop-shadow(0 0 4px #3fb950); }
+    }
+
+    @keyframes borderSilent {
+      0%, 30%  { stroke: #d29922; filter: drop-shadow(0 0 3px #d29922); }
+      40%, 80% { stroke: #484f58; filter: none; }
+      90%, 100%{ stroke: #3fb950; filter: drop-shadow(0 0 4px #3fb950); }
+    }
+
+    @keyframes statusTextCycle {
+      0%, 39%  { fill: #3fb950; }
+      40%, 89% { fill: #d29922; }
+      90%, 100%{ fill: #3fb950; }
+    }
+
+    @keyframes statusText2 {
+      0%, 29%  { fill: #d29922; }
+      30%, 79% { fill: #484f58; }
+      80%, 100%{ fill: #3fb950; }
+    }
+
+    @keyframes cursorBlink {
+      0%, 49%  { opacity: 1; }
+      50%, 100%{ opacity: 0; }
+    }
+
+    @keyframes typeIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+
+    .pane-border-1 {
+      animation: borderActive 8s 0.5s ease-in-out infinite;
+    }
+
+    .pane-border-2 {
+      animation: borderSilent 8s 1s ease-in-out infinite;
+    }
+
+    .status-text-1 {
+      animation: statusTextCycle 8s 0.5s ease-in-out infinite;
+    }
+
+    .status-text-2 {
+      animation: statusText2 8s 1s ease-in-out infinite;
+    }
+
+    .cursor {
+      animation: cursorBlink 1s 0.3s step-end infinite;
+    }
+
+    /* ─── RESPONSIVE ─── */
+    @media (max-width: 900px) {
+      .hero {
+        grid-template-columns: 1fr;
+        padding: 4rem 2rem 3rem;
+        gap: 3rem;
+      }
+
+      .features { grid-template-columns: 1fr; }
+      .status-grid { grid-template-columns: 1fr 1fr; }
+      .arch-grid { grid-template-columns: 1fr; }
+      .arch-flow { grid-template-columns: 1fr; }
+      .arch-arrow { display: none; }
+      .install-steps { grid-template-columns: 1fr; }
+      .nodes-diagram { flex-direction: column; }
+      section { padding: 3rem 2rem; }
+      footer { flex-direction: column; gap: 1.5rem; padding: 2rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ─── NAV ─── -->
+<nav>
+  <a class="nav-brand" href="#">jt<span> / jawn-tmux</span></a>
+  <ul>
+    <li><a href="#what">what</a></li>
+    <li><a href="#how">how it works</a></li>
+    <li><a href="#install">install</a></li>
+    <li><a href="#commands">commands</a></li>
+    <li><a href="https://github.com/jamditis/jawn-tmux" class="nav-gh">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      GitHub
+    </a></li>
+  </ul>
+</nav>
+
+<!-- ─── HERO ─── -->
+<section class="hero" id="hero" style="padding-top: 7rem; padding-bottom: 5rem; max-width: 1200px;">
+  <div class="hero-text">
+    <div class="hero-eyebrow">tmux + AI agents</div>
+    <h1>Session visibility<br>for your <em>agents.</em></h1>
+    <p class="hero-desc">
+      jawn-tmux watches your tmux sessions and shows you what your AI agents are doing — with colored pane borders, a live sidebar, and cross-node status across machines.
+    </p>
+    <div class="hero-actions">
+      <a class="btn-primary" href="#install">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M2.5 8a5.5 5.5 0 0 1 8.25-4.764.5.5 0 0 0 .5-.866A6.5 6.5 0 1 0 14.5 8a.5.5 0 0 0-1 0 5.5 5.5 0 1 1-11 0z"/><path d="M15.354 3.354a.5.5 0 0 0-.708-.708L8 9.293 5.354 6.646a.5.5 0 1 0-.708.708l3 3a.5.5 0 0 0 .708 0l7-7z"/></svg>
+        Install
+      </a>
+      <a class="btn-secondary" href="https://github.com/jamditis/jawn-tmux">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        View source
+      </a>
+    </div>
+    <div class="hero-badges">
+      <img src="https://img.shields.io/github/v/tag/jamditis/jawn-tmux?style=flat-square&color=3fb950&labelColor=0d120d&label=version" alt="version">
+      <img src="https://img.shields.io/badge/python-3.11%2B-3fb950?style=flat-square&labelColor=0d120d" alt="Python 3.11+">
+      <img src="https://img.shields.io/badge/platform-linux%20arm64%20%7C%20x86-484f58?style=flat-square&labelColor=0d120d" alt="platform">
+      <img src="https://img.shields.io/badge/license-MIT-484f58?style=flat-square&labelColor=0d120d" alt="license">
+    </div>
+  </div>
+
+  <!-- Animated tmux demo -->
+  <div class="hero-demo">
+    <div class="term-window">
+      <div class="term-bar">
+        <div class="term-dot" style="background:#f85149;"></div>
+        <div class="term-dot" style="background:#d29922; margin-left:4px;"></div>
+        <div class="term-dot" style="background:#3fb950; margin-left:4px;"></div>
+        <div class="term-title">houseofjawn — tmux 3.5a</div>
+      </div>
+
+      <svg class="tmux-svg" viewBox="0 0 560 340" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <style>
+            .t { font-family: 'IBM Plex Mono', monospace; font-size: 10px; }
+            .td { fill: #6a7a69; }
+            .tg { fill: #3fb950; }
+            .ta { fill: #d29922; }
+            .tw { fill: #c9d1c8; }
+            .tr { fill: #f85149; }
+            .th { fill: #484f58; }
+          </style>
+        </defs>
+
+        <!-- background -->
+        <rect width="560" height="340" fill="#080c08"/>
+
+        <!-- main pane (left, taller) -->
+        <rect x="0" y="0" width="320" height="340" fill="#080c08"/>
+        <!-- main pane has no animated border — always static -->
+        <rect x="0" y="0" width="320" height="340" fill="none" stroke="#1e2a1e" stroke-width="1"/>
+
+        <!-- vertical divider -->
+        <line x1="320" y1="0" x2="320" y2="340" stroke="#1e2a1e" stroke-width="1"/>
+
+        <!-- right top pane -->
+        <rect x="321" y="0" width="239" height="168" fill="#080c08"/>
+        <rect x="321" y="0" width="239" height="168" fill="none" stroke-width="2" class="pane-border-1"/>
+
+        <!-- right bottom pane -->
+        <rect x="321" y="169" width="239" height="171" fill="#080c08"/>
+        <rect x="321" y="169" width="239" height="171" fill="none" stroke-width="2" class="pane-border-2"/>
+
+        <!-- horizontal divider -->
+        <line x1="321" y1="168" x2="560" y2="168" stroke="#1e2a1e" stroke-width="1"/>
+
+        <!-- ── main pane content ── -->
+        <text x="12" y="20" class="t td">jamditis@houseofjawn:~$</text>
+        <text x="12" y="38" class="t tg">jt status</text>
+
+        <!-- jt status output -->
+        <text x="12" y="62" class="t tw" font-weight="700">houseofjawn</text>
+        <text x="100" y="62" class="t td">16:42:05</text>
+
+        <text x="14" y="84" class="t tw">main</text>
+        <text x="76" y="84" class="t" fill="#c9d1c8">active</text>
+        <text x="128" y="84" class="t tg">●</text>
+        <text x="142" y="84" class="t td">52h</text>
+        <text x="176" y="84" class="t td">claude</text>
+
+        <text x="14" y="102" class="t tw">morning-wake</text>
+        <text x="110" y="102" class="t status-text-1">active</text>
+        <text x="162" y="102" class="t status-text-1">●</text>
+        <text x="176" y="102" class="t td">4m</text>
+        <text x="210" y="102" class="t td">claude</text>
+
+        <text x="28" y="114" class="t td">  Checking email...</text>
+        <text x="28" y="126" class="t td">  Found 1 transcript.</text>
+
+        <text x="14" y="148" class="t tw">checkin-wake</text>
+        <text x="108" y="148" class="t status-text-2">silent</text>
+        <text x="155" y="148" class="t status-text-2">~</text>
+        <text x="168" y="148" class="t td">12m</text>
+        <text x="204" y="148" class="t td">bash</text>
+
+        <text x="28" y="160" class="t td">  No new transcripts.</text>
+
+        <!-- prompt again -->
+        <text x="12" y="188" class="t td">jamditis@houseofjawn:~$</text>
+        <rect x="192" y="179" width="8" height="12" fill="#3fb950" class="cursor"/>
+
+        <!-- system status bar at bottom of main pane -->
+        <rect x="0" y="326" width="320" height="14" fill="#0d120d"/>
+        <text x="8" y="337" class="t td" font-size="9">[0] main</text>
+        <text x="56" y="337" class="t tg" font-size="9">[1] morning-wake</text>
+        <text x="148" y="337" class="t ta" font-size="9">[2] checkin-wake</text>
+        <text x="244" y="337" class="t td" font-size="9">houseofjawn</text>
+
+        <!-- ── right top pane (morning-wake) ── -->
+        <text x="332" y="14" class="t td" font-size="9">morning-wake — claude</text>
+
+        <text x="332" y="34" class="t td">Processing transcript...</text>
+        <text x="332" y="50" class="t tg">✓ Read 3 action items</text>
+        <text x="332" y="66" class="t td">Checking calendar...</text>
+        <text x="332" y="82" class="t tg">✓ 2 events found</text>
+        <text x="332" y="98" class="t td">Drafting summary...</text>
+
+        <!-- pane status pill -->
+        <rect x="445" y="6" width="50" height="14" rx="3" fill="rgba(63,185,80,0.15)" class="status-text-1" style="fill:rgba(63,185,80,0.1)"/>
+        <text x="456" y="17" class="t" font-size="9" class="status-text-1">
+          <tspan class="status-text-1">● active</tspan>
+        </text>
+
+        <!-- ── right bottom pane (checkin-wake) ── -->
+        <text x="332" y="184" class="t td" font-size="9">checkin-wake — bash</text>
+        <text x="332" y="204" class="t td">No new transcripts found.</text>
+        <text x="332" y="220" class="t td">Email check: 0 new.</text>
+        <text x="332" y="236" class="t th">CLAUDE_TASK_COMPLETE:0</text>
+
+        <!-- pane status pill -->
+        <rect x="440" y="175" width="60" height="14" rx="3" fill="rgba(210,153,34,0.1)"/>
+        <text x="450" y="186" class="t ta" font-size="9">~ silent</text>
+
+        <!-- bottom status bar for right panes -->
+        <rect x="321" y="326" width="239" height="14" fill="#0d120d"/>
+        <text x="330" y="337" class="t td" font-size="9">port :6248 · jtd running</text>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ─── WHAT IS THIS ─── -->
+<section id="what">
+  <div class="section-label">overview</div>
+  <h2>What is jawn-tmux?</h2>
+  <p class="section-lead">
+    When you run multiple AI agents in parallel tmux sessions, it's hard to tell what's happening without switching between each one. jawn-tmux solves that with a lightweight daemon that watches all your sessions and gives you instant visual feedback.
+  </p>
+
+  <div class="features">
+    <div class="feature">
+      <svg class="feature-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="36" height="36" rx="6" fill="rgba(63,185,80,0.08)"/>
+        <rect x="8" y="8" width="20" height="14" rx="2" stroke="#3fb950" stroke-width="1.5"/>
+        <rect x="8" y="14" width="20" height="1" fill="#1e2a1e"/>
+        <rect x="8" y="14" width="20" height="8" rx="0" fill="none" stroke="#d29922" stroke-width="1.5" stroke-dasharray="2 1"/>
+        <circle cx="18" cy="28" r="2" fill="#3fb950"/>
+      </svg>
+      <h3>Visual pane attention</h3>
+      <p>Pane borders change color automatically — green when an agent is active, amber when it's gone silent, gray when done, red on error. No switching required.</p>
+    </div>
+    <div class="feature">
+      <svg class="feature-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="36" height="36" rx="6" fill="rgba(210,153,34,0.08)"/>
+        <rect x="8" y="8" width="13" height="20" rx="2" stroke="#3fb950" stroke-width="1.5"/>
+        <rect x="23" y="8" width="5" height="20" rx="2" stroke="#d29922" stroke-width="1.5"/>
+        <line x1="25" y1="12" x2="27" y2="12" stroke="#d29922" stroke-width="1"/>
+        <line x1="25" y1="15" x2="27" y2="15" stroke="#d29922" stroke-width="1"/>
+        <line x1="25" y1="18" x2="27" y2="18" stroke="#d29922" stroke-width="1"/>
+      </svg>
+      <h3>Live sidebar</h3>
+      <p>A 36-column pane on the right edge of your terminal shows all sessions, their statuses, and the last few lines of output — always visible while you work.</p>
+    </div>
+    <div class="feature">
+      <svg class="feature-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="36" height="36" rx="6" fill="rgba(72,79,88,0.2)"/>
+        <circle cx="12" cy="12" r="4" stroke="#3fb950" stroke-width="1.5"/>
+        <circle cx="24" cy="24" r="4" stroke="#484f58" stroke-width="1.5"/>
+        <line x1="15" y1="15" x2="21" y2="21" stroke="#1e2a1e" stroke-width="1.5"/>
+        <circle cx="12" cy="24" r="3" stroke="#d29922" stroke-width="1.5"/>
+        <line x1="15" y1="12" x2="24" y2="21" stroke="#1e2a1e" stroke-width="1" stroke-dasharray="2 2"/>
+      </svg>
+      <h3>Cross-node status</h3>
+      <p>Running agents on multiple machines? <code>jt nodes</code> aggregates status from all your configured nodes over Tailscale in one combined view.</p>
+    </div>
+  </div>
+
+  <!-- status values -->
+  <div class="section-label" style="margin-top: 3rem;">session states</div>
+  <p class="section-lead" style="margin-bottom: 0;">Each session is classified every 2 seconds by the daemon based on output activity.</p>
+
+  <div class="status-grid">
+    <div class="status-card active">
+      <div class="color-dot"></div>
+      <span class="label">active</span>
+      <span class="condition">Output in the last 20 seconds</span>
+    </div>
+    <div class="status-card silent">
+      <div class="color-dot"></div>
+      <span class="label">silent</span>
+      <span class="condition">No output for 20+ seconds</span>
+    </div>
+    <div class="status-card done">
+      <div class="color-dot"></div>
+      <span class="label">done</span>
+      <span class="condition">CLAUDE_TASK_COMPLETE:0 marker seen</span>
+    </div>
+    <div class="status-card error">
+      <div class="color-dot"></div>
+      <span class="label">error</span>
+      <span class="condition">Non-zero exit code in marker</span>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ─── HOW IT WORKS ─── -->
+<section id="how">
+  <div class="section-label">architecture</div>
+  <h2>How it works</h2>
+  <p class="section-lead">
+    Two processes. One writes state, one reads it. No dependencies beyond the Python standard library and tmux itself.
+  </p>
+
+  <div class="arch-flow">
+    <div class="arch-box highlight">
+      <h3>jtd — daemon</h3>
+      <p class="subtitle">Runs as a systemd user service</p>
+      <ul class="arch-list">
+        <li>Polls <code>tmux list-sessions</code> every 2 seconds</li>
+        <li>Computes status from output activity and exit markers</li>
+        <li>Updates pane border colors via <code>tmux select-pane -P</code></li>
+        <li>Writes <code>/tmp/jt-state.json</code> atomically</li>
+        <li>Serves JSON on port 6248 for cross-node polling</li>
+      </ul>
+    </div>
+
+    <div class="arch-arrow">⟶</div>
+
+    <div class="arch-box">
+      <h3>jt — CLI</h3>
+      <p class="subtitle">Reads state, controls sessions</p>
+      <ul class="arch-list">
+        <li>Reads <code>/tmp/jt-state.json</code> directly (no subprocess)</li>
+        <li>Renders a table, watch loop, or popup</li>
+        <li>Spawns, kills, and attaches to sessions</li>
+        <li>Fetches remote nodes via HTTP for <code>jt nodes</code></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="code-block" style="margin-top: 2.5rem;">
+    <div class="code-header">
+      <span>state schema — /tmp/jt-state.json</span>
+      <span>JSON</span>
+    </div>
+    <div class="code-body"><code><span class="cmt">// written by jtd every 2 seconds</span>
+{
+  <span class="str">"node"</span>: <span class="str">"houseofjawn"</span>,
+  <span class="str">"updated_at"</span>: 1740000000,
+  <span class="str">"sessions"</span>: {
+    <span class="str">"morning-wake"</span>: {
+      <span class="str">"status"</span>: <span class="str">"active"</span>,        <span class="cmt">// active | silent | done | error</span>
+      <span class="str">"command"</span>: <span class="str">"claude"</span>,
+      <span class="str">"elapsed_secs"</span>: 720,
+      <span class="str">"last_activity_secs"</span>: 8,
+      <span class="str">"output_tail"</span>: [<span class="str">"Checking email..."</span>, <span class="str">"Found 1 transcript."</span>],
+      <span class="str">"output_file"</span>: <span class="str">"/tmp/claude_scheduled_1740000000.txt"</span>
+    }
+  }
+}</code></div>
+  </div>
+
+  <div class="section-label" style="margin-top: 3rem;">tmux keybindings</div>
+
+  <div class="arch-grid" style="margin-top: 1.5rem;">
+    <div class="arch-box">
+      <h3>Ctrl+B a — popup</h3>
+      <p class="subtitle">Quick interactive status overlay</p>
+      <ul class="arch-list">
+        <li>Shows all sessions + output tails</li>
+        <li>Press <code>k</code> to kill a session by name</li>
+        <li>Press <code>q</code> to dismiss</li>
+      </ul>
+    </div>
+    <div class="arch-box">
+      <h3>Ctrl+B A — sidebar</h3>
+      <p class="subtitle">Toggle the live watch pane</p>
+      <ul class="arch-list">
+        <li>Opens a 36-column right pane running <code>jt watch</code></li>
+        <li>Refreshes every 2 seconds</li>
+        <li>Press again to close it</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ─── INSTALL ─── -->
+<section id="install">
+  <div class="section-label">getting started</div>
+  <h2>Install</h2>
+  <p class="section-lead">Requires Python 3.11+, tmux 3.0+, and systemd. Works on Linux ARM64 (Raspberry Pi), x86_64, and WSL2.</p>
+
+  <div class="install-steps">
+    <div class="install-step">
+      <div class="step-num">step 1</div>
+      <div class="step-title">Clone the repo</div>
+      <div class="step-code">git clone https://github.com/\
+  jamditis/jawn-tmux.git \
+  ~/projects/jawn-tmux</div>
+    </div>
+    <div class="install-step">
+      <div class="step-num">step 2</div>
+      <div class="step-title">Run the installer</div>
+      <div class="step-code">cd ~/projects/jawn-tmux
+chmod +x install.sh
+./install.sh</div>
+    </div>
+    <div class="install-step">
+      <div class="step-num">step 3</div>
+      <div class="step-title">Verify it's running</div>
+      <div class="step-code">systemctl --user status jtd
+jt status</div>
+    </div>
+  </div>
+
+  <div class="code-block" style="margin-top: 2rem;">
+    <div class="code-header">
+      <span>what install.sh does</span>
+    </div>
+    <div class="code-body"><code><span class="cmt"># 1. Install the jt + jtd entry points</span>
+pip3 install --break-system-packages -e .
+
+<span class="cmt"># 2. Add keybindings to ~/.tmux.conf (idempotent)</span>
+source-file ~/projects/jawn-tmux/tmux/jt.conf
+
+<span class="cmt"># 3. Install and start the systemd user service</span>
+systemctl --user enable --now jtd</code></div>
+  </div>
+
+  <div class="section-label" style="margin-top: 3rem;">multi-node setup</div>
+  <p class="section-lead" style="margin-bottom: 1.5rem;">
+    To monitor sessions across multiple machines, edit <code>~/.config/jt/nodes.json</code> with each node's Tailscale IP.
+  </p>
+
+  <div class="nodes-diagram">
+    <div class="node-box primary">
+      <div class="node-name">houseofjawn</div>
+      <div class="node-role">100.122.208.15:6248</div>
+    </div>
+    <div class="node-connector">─── jt nodes ───</div>
+    <div class="node-box">
+      <div class="node-name">officejawn</div>
+      <div class="node-role">100.84.214.24:6248</div>
+    </div>
+    <div class="node-connector">───</div>
+    <div class="node-box">
+      <div class="node-name">yournode</div>
+      <div class="node-role">&lt;tailscale-ip&gt;:6248</div>
+    </div>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header">
+      <span>~/.config/jt/nodes.json</span>
+      <span>JSON</span>
+    </div>
+    <div class="code-body"><code>[
+  { <span class="str">"name"</span>: <span class="str">"houseofjawn"</span>, <span class="str">"ip"</span>: <span class="str">"100.122.208.15"</span>, <span class="str">"port"</span>: 6248 },
+  { <span class="str">"name"</span>: <span class="str">"officejawn"</span>,  <span class="str">"ip"</span>: <span class="str">"100.84.214.24"</span>,  <span class="str">"port"</span>: 6248 }
+]</code></div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ─── COMMANDS ─── -->
+<section id="commands">
+  <div class="section-label">reference</div>
+  <h2>Commands</h2>
+  <p class="section-lead">All commands read local state from <code>/tmp/jt-state.json</code> — no subprocess overhead for status queries.</p>
+
+  <table class="cmd-table">
+    <thead>
+      <tr>
+        <th>command</th>
+        <th>description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="cmd-name">jt <span style="color:var(--text-faint)">[status]</span></td>
+        <td class="cmd-desc">Print a table of all local sessions with status, elapsed time, and output tails.</td>
+      </tr>
+      <tr>
+        <td class="cmd-name">jt watch</td>
+        <td class="cmd-desc">Live re-render loop (2s interval). Used by the sidebar pane.</td>
+      </tr>
+      <tr>
+        <td class="cmd-name">jt popup</td>
+        <td class="cmd-desc">Interactive status popup via <code>tmux display-popup</code>. Press <code>q</code> to close, <code>k</code> to kill a session.</td>
+      </tr>
+      <tr>
+        <td class="cmd-name">jt sidebar <span class="cmd-arg">[on|off|toggle]</span></td>
+        <td class="cmd-desc">Toggle a 36-column persistent right pane running <code>jt watch</code>.</td>
+      </tr>
+      <tr>
+        <td class="cmd-name">jt spawn <span class="cmd-arg">&lt;name&gt; &lt;cmd&gt;</span></td>
+        <td class="cmd-desc">Create a named tmux session running the given command.</td>
+      </tr>
+      <tr>
+        <td class="cmd-name">jt kill <span class="cmd-arg">&lt;name&gt;</span></td>
+        <td class="cmd-desc">Kill a tmux session by name.</td>
+      </tr>
+      <tr>
+        <td class="cmd-name">jt attach <span class="cmd-arg">&lt;name&gt;</span></td>
+        <td class="cmd-desc">Attach to a named tmux session.</td>
+      </tr>
+      <tr>
+        <td class="cmd-name">jt nodes</td>
+        <td class="cmd-desc">Aggregate and display status from all configured nodes via HTTP. Unreachable nodes are shown as such.</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<hr class="divider">
+
+<!-- ─── FOOTER ─── -->
+<footer>
+  <div>
+    <div class="footer-brand">jt<span> / jawn-tmux</span></div>
+    <div style="font-size:11px; color:var(--text-faint); margin-top:4px;">Python 3.11+ · Linux · tmux 3.0+ · MIT License</div>
+  </div>
+  <ul class="footer-links">
+    <li><a href="https://github.com/jamditis/jawn-tmux">GitHub</a></li>
+    <li><a href="https://github.com/jamditis/jawn-tmux/issues">Issues</a></li>
+    <li><a href="https://github.com/jamditis/jawn-tmux/blob/master/CONTRIBUTING.md">Contributing</a></li>
+    <li><a href="https://github.com/jamditis/jawn-tmux/releases">Releases</a></li>
+  </ul>
+</footer>
+
+</body>
+</html>
