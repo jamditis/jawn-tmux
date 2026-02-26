@@ -12,7 +12,7 @@ pip3 install --break-system-packages -e "$REPO_DIR"
 
 # Add tmux keybindings if not already present
 if ! grep -q 'jt.conf' "$TMUX_CONF" 2>/dev/null; then
-    printf '\n# jawn-tmux\nsource-file %s/tmux/jt.conf\n' "$REPO_DIR" >> "$TMUX_CONF"
+    printf '\n# jawn-tmux\nsource-file "%s/tmux/jt.conf"\n' "$REPO_DIR" >> "$TMUX_CONF"
     echo "Added keybindings to $TMUX_CONF"
 else
     echo "Keybindings already present in $TMUX_CONF"
@@ -36,3 +36,6 @@ echo "Done."
 echo "  jt status       — show sessions"
 echo "  Ctrl+B a        — popup"
 echo "  Ctrl+B A        — sidebar toggle"
+echo ""
+echo "Note: if 'jt' is not found, add ~/.local/bin to PATH:"
+echo "  echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.bashrc && source ~/.bashrc"
