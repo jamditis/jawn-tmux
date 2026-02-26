@@ -2,7 +2,6 @@
 import json
 import threading
 import urllib.request
-import socketserver
 import pytest
 from jt import daemon, state
 
@@ -12,10 +11,8 @@ def http_server(tmp_path, monkeypatch):
     monkeypatch.setattr(state, 'STATE_FILE', tmp_path / 'jt-state.json')
     state.write_state('houseofjawn', {'main': {'name': 'main', 'status': 'active'}})
 
-    with socketserver.TCPServer(('', 0), None) as s:
-        port = s.server_address[1]
-
-    server = daemon._make_http_server(port)
+    server = daemon._make_http_server(0)
+    port = server.server_address[1]
     t = threading.Thread(target=server.serve_forever, daemon=True)
     t.start()
     yield port

@@ -100,7 +100,7 @@ class _StatusHandler(BaseHTTPRequestHandler):
         if self.path == '/status':
             body = json.dumps(state.read_state()).encode()
             self.send_response(200)
-            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Type', 'application/json; charset=utf-8')
             self.end_headers()
             self.wfile.write(body)
         else:
@@ -112,6 +112,8 @@ class _StatusHandler(BaseHTTPRequestHandler):
 
 
 def _make_http_server(port: int = HTTP_PORT) -> HTTPServer:
+    # Bind on all interfaces — intentional, Tailscale-accessible for cross-node polling.
+    # No auth needed: state JSON is non-sensitive session metadata.
     return HTTPServer(('0.0.0.0', port), _StatusHandler)
 
 
