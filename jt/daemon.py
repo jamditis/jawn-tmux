@@ -93,3 +93,43 @@ def _update_borders(prev: dict, curr: dict) -> None:
         if info['status'] != prev.get(name, {}).get('status'):
             color = STATUS_COLORS.get(info['status'], STATUS_COLORS['active'])
             tmux.set_pane_style(name, '0', color)
+
+
+class _StatusHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == '/status':
+            body = json.dumps(state.read_state()).encode()
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(body)
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+    def log_message(self, *args):
+        pass  # suppress access logs
+
+
+def _make_http_server(port: int = HTTP_PORT) -> HTTPServer:
+    return HTTPServer(('0.0.0.0', port), _StatusHandler)
+
+
+def run():
+    node = socket.gethostname()
+    server = _make_http_server()
+    t = threading.Thread(target=server.serve_forever, daemon=True)
+    t.start()
+
+    prev_sessions: dict = {}
+    while True:
+        try:
+            raw = tmux.list_sessions()
+            now = time.time()
+            curr = build_session_state(raw, now)
+            state.write_state(node, curr)
+            _update_borders(prev_sessions, curr)
+            prev_sessions = curr
+        except Exception:
+            pass  # don't crash on transient errors
+        time.sleep(POLL_INTERVAL)
