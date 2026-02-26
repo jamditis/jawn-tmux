@@ -823,6 +823,7 @@
     <li><a href="#how">how it works</a></li>
     <li><a href="#install">install</a></li>
     <li><a href="#commands">commands</a></li>
+    <li><a href="#acknowledgments">prior art</a></li>
     <li><a href="https://github.com/jamditis/jawn-tmux" class="nav-gh">
       <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
       GitHub
@@ -1264,6 +1265,93 @@ systemctl --user enable --now jtd</code></div>
       </tr>
     </tbody>
   </table>
+</section>
+
+<hr class="divider">
+
+<!-- ─── ACKNOWLEDGMENTS ─── -->
+<section id="acknowledgments">
+  <div class="section-label">prior art</div>
+  <h2>Inspired by cmux</h2>
+  <p class="section-lead">
+    jawn-tmux exists because of <a href="https://github.com/manaflow-ai/cmux" style="color:var(--green); text-decoration:none; border-bottom:1px solid var(--green-dim);">cmux</a> — a native macOS terminal emulator built on Ghostty that pioneered the idea of visual session state for parallel AI agent workflows. cmux adds blue ring indicators when agents need attention, a vertical sidebar per workspace showing git branches, port status, and notification history, and a built-in scriptable browser. It has 2,300+ GitHub stars and is the reference implementation of this concept on macOS.
+  </p>
+  <p style="font-family: var(--sans); font-size: 14px; color: var(--text-dim); line-height: 1.7; margin-top: 1rem;">
+    jawn-tmux is the Linux answer to the same problem. If you're on macOS and using Ghostty, go use cmux — it's much more complete. jawn-tmux is for everyone running headless Linux servers, Raspberry Pis, WSL2, and SSH sessions where a native macOS app simply isn't an option.
+  </p>
+
+  <div class="section-label" style="margin-top: 3rem;">comparison</div>
+  <p class="section-lead" style="margin-bottom: 0;">Where they overlap and where they diverge.</p>
+
+  <table class="cmd-table" style="margin-top: 1.5rem;">
+    <thead>
+      <tr>
+        <th style="width: 28%;">capability</th>
+        <th style="width: 36%;">jawn-tmux</th>
+        <th style="width: 36%;">cmux</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="cmd-name" style="color: var(--text-dim); font-weight: 400;">Platform</td>
+        <td class="cmd-desc"><span style="color: var(--green);">Linux, WSL2, ARM64</span></td>
+        <td class="cmd-desc"><span style="color: var(--amber);">macOS only</span></td>
+      </tr>
+      <tr>
+        <td class="cmd-name" style="color: var(--text-dim); font-weight: 400;">Terminal</td>
+        <td class="cmd-desc">Add-on to existing tmux sessions</td>
+        <td class="cmd-desc"><span style="color: var(--green);">Full emulator — replaces your terminal app</span></td>
+      </tr>
+      <tr>
+        <td class="cmd-name" style="color: var(--text-dim); font-weight: 400;">Language / deps</td>
+        <td class="cmd-desc"><span style="color: var(--green);">Python stdlib, zero runtime deps</span></td>
+        <td class="cmd-desc">Swift + AppKit, native macOS frameworks</td>
+      </tr>
+      <tr>
+        <td class="cmd-name" style="color: var(--text-dim); font-weight: 400;">Session indicators</td>
+        <td class="cmd-desc">Pane border colors (green / amber / gray / red)</td>
+        <td class="cmd-desc"><span style="color: var(--green);">Blue ring on pane + tab highlight when agent needs attention</span></td>
+      </tr>
+      <tr>
+        <td class="cmd-name" style="color: var(--text-dim); font-weight: 400;">Sidebar</td>
+        <td class="cmd-desc">Live 36-col pane showing session table (<code>jt sidebar</code>)</td>
+        <td class="cmd-desc"><span style="color: var(--green);">Vertical tabs with branch, PR status, ports, notifications per workspace</span></td>
+      </tr>
+      <tr>
+        <td class="cmd-name" style="color: var(--text-dim); font-weight: 400;">Cross-node status</td>
+        <td class="cmd-desc"><span style="color: var(--green);">HTTP polling — <code>jt nodes</code> aggregates any number of machines</span></td>
+        <td class="cmd-desc">Not built-in</td>
+      </tr>
+      <tr>
+        <td class="cmd-name" style="color: var(--text-dim); font-weight: 400;">Built-in browser</td>
+        <td class="cmd-desc">No</td>
+        <td class="cmd-desc"><span style="color: var(--green);">Yes — scriptable via accessibility tree and element refs</span></td>
+      </tr>
+      <tr>
+        <td class="cmd-name" style="color: var(--text-dim); font-weight: 400;">Headless / SSH</td>
+        <td class="cmd-desc"><span style="color: var(--green);">Works fully over SSH, no display required</span></td>
+        <td class="cmd-desc"><span style="color: var(--amber);">Requires a macOS display</span></td>
+      </tr>
+      <tr>
+        <td class="cmd-name" style="color: var(--text-dim); font-weight: 400;">Install</td>
+        <td class="cmd-desc"><code>./install.sh</code> — pip + systemd user service</td>
+        <td class="cmd-desc">macOS app bundle</td>
+      </tr>
+      <tr>
+        <td class="cmd-name" style="color: var(--text-dim); font-weight: 400;">Maturity</td>
+        <td class="cmd-desc"><span style="color: var(--amber);">v0.1.0, early</span></td>
+        <td class="cmd-desc"><span style="color: var(--green);">2,300+ stars, active community</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div style="margin-top: 2rem; padding: 1.25rem 1.5rem; background: var(--bg-card); border: 1px solid var(--border); border-left: 3px solid var(--green-dim); border-radius: 4px;">
+    <p style="font-family: var(--sans); font-size: 13px; color: var(--text-dim); line-height: 1.6; margin: 0;">
+      <strong style="color: var(--text); font-family: var(--mono); font-size: 12px;">TL;DR</strong> &nbsp;
+      macOS + Ghostty user? Use <a href="https://github.com/manaflow-ai/cmux" style="color: var(--green); text-decoration: none;">cmux</a>.
+      Linux / SSH / Raspberry Pi user? You're in the right place.
+    </p>
+  </div>
 </section>
 
 <hr class="divider">
