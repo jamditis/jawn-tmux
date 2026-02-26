@@ -42,3 +42,33 @@ def test_fetch_remote_state_returns_none_on_failure():
     with patch('urllib.request.urlopen', side_effect=Exception('timeout')):
         result = nodes.fetch_remote_state({'name': 'officejawn', 'ip': '1.2.3.4', 'port': 6248})
     assert result is None
+
+
+def test_load_nodes_returns_empty_for_non_list_json(tmp_path, monkeypatch):
+    cfg = tmp_path / 'nodes.json'
+    cfg.write_text('{}')
+    monkeypatch.setattr(nodes, 'NODES_FILE', cfg)
+    assert nodes.load_nodes() == []
+
+
+def test_fetch_remote_state_returns_none_on_missing_ip():
+    result = nodes.fetch_remote_state({'name': 'test', 'port': 6248})
+    assert result is None
+
+
+def test_fetch_remote_state_uses_default_port_for_null_port():
+    fake_state = {'node': 'test', 'sessions': {}}
+    mock_resp = MagicMock()
+    mock_resp.__enter__ = lambda s: s
+    mock_resp.__exit__ = MagicMock(return_value=False)
+    mock_resp.read.return_value = json.dumps(fake_state).encode()
+
+    captured_urls = []
+    def capture_urlopen(url, timeout):
+        captured_urls.append(url)
+        return mock_resp
+
+    with patch('urllib.request.urlopen', side_effect=capture_urlopen):
+        result = nodes.fetch_remote_state({'name': 'test', 'ip': '1.2.3.4', 'port': None})
+    assert result == fake_state
+    assert f':{nodes.DEFAULT_PORT}/' in captured_urls[0]

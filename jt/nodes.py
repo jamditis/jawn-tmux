@@ -10,14 +10,15 @@ DEFAULT_PORT = 6248
 
 def load_nodes() -> list[dict]:
     try:
-        return json.loads(NODES_FILE.read_text())
+        result = json.loads(NODES_FILE.read_text())
+        return result if isinstance(result, list) else []
     except (FileNotFoundError, json.JSONDecodeError):
         return []
 
 
 def fetch_remote_state(node: dict, timeout: int = 3) -> Optional[dict]:
-    url = f"http://{node['ip']}:{node.get('port', DEFAULT_PORT)}/status"
     try:
+        url = f"http://{node['ip']}:{node.get('port') or DEFAULT_PORT}/status"
         with urllib.request.urlopen(url, timeout=timeout) as resp:
             return json.loads(resp.read())
     except Exception:
