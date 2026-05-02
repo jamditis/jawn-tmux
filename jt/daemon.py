@@ -173,7 +173,11 @@ def _update_borders(prev: dict, curr: dict) -> None:
             continue
         if info['status'] != prev.get(name, {}).get('status'):
             color = STATUS_COLORS.get(info['status'], STATUS_COLORS['active'])
-            tmux.set_pane_style(name, '0', color)
+            pane_id = tmux.first_pane_id(name)
+            if pane_id and not tmux.set_pane_status_color(pane_id, color):
+                # Don't raise — paint failures shouldn't kill the poll
+                # loop. Surface to journald so regressions are debuggable.
+                log.warning('failed to paint %s pane %s color=%s', name, pane_id, color)
 
 
 class _StatusHandler(BaseHTTPRequestHandler):

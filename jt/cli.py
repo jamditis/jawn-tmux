@@ -83,36 +83,54 @@ def cmd_popup(args):
                 time.sleep(0.6)
 
 
-def cmd_sidebar(args):
-    action = getattr(args, 'action', 'toggle')
+def _find_sidebar_pane() -> str | None:
+    """Return the pane id of the sidebar, or None.
+
+    The sidebar is identified by the per-pane ``@jt_sidebar`` user option,
+    not by pane title. Pane titles get clobbered by shell escape sequences
+    (``\033]2;...\007``) and other tools, so they're unreliable.
+    """
     result = subprocess.run(
-        ['tmux', 'list-panes', '-F', '#{pane_title}'],
+        ['tmux', 'list-panes', '-F', '#{pane_id} #{@jt_sidebar}'],
         capture_output=True, text=True,
     )
-    has_sidebar = 'jt-sidebar' in result.stdout
+    for line in result.stdout.splitlines():
+        parts = line.split()
+        if len(parts) == 2 and parts[1] == '1':
+            return parts[0]
+    return None
+
+
+def cmd_sidebar(args):
+    action = getattr(args, 'action', 'toggle')
+    sidebar_pane = _find_sidebar_pane()
 
     if action == 'toggle':
-        action = 'off' if has_sidebar else 'on'
+        action = 'off' if sidebar_pane else 'on'
 
-    if action == 'on' and not has_sidebar:
+    if action == 'on' and not sidebar_pane:
+        # ``-P -F '#{pane_id}'`` makes split-window print the new pane id
+        # on stdout. Using the printed id instead of an implicit "active
+        # pane" assumption is necessary because we passed ``-d``, which
+        # leaves the original pane focused — so a follow-up
+        # ``select-pane -T`` (no -t) would tag the wrong pane.
         r = subprocess.run(
-            ['tmux', 'split-window', '-h', '-l', '36', '-d', 'jt watch'],
-            capture_output=True,
-        )
-        if r.returncode == 0:
-            subprocess.run(['tmux', 'select-pane', '-T', 'jt-sidebar'], capture_output=True)
-        else:
-            print('failed to open sidebar:', r.stderr.decode().strip(), file=sys.stderr)
-    elif action == 'off' and has_sidebar:
-        result = subprocess.run(
-            ['tmux', 'list-panes', '-F', '#{pane_id} #{pane_title}'],
+            ['tmux', 'split-window', '-h', '-l', '36', '-d',
+             '-P', '-F', '#{pane_id}', 'jt watch'],
             capture_output=True, text=True,
         )
-        for line in result.stdout.splitlines():
-            if 'jt-sidebar' in line:
-                pane_id = line.split()[0]
-                subprocess.run(['tmux', 'kill-pane', '-t', pane_id], capture_output=True)
-                break
+        if r.returncode == 0:
+            new_pane = r.stdout.strip()
+            if new_pane:
+                subprocess.run(
+                    ['tmux', 'set-option', '-p', '-t', new_pane,
+                     '@jt_sidebar', '1'],
+                    capture_output=True,
+                )
+        else:
+            print('failed to open sidebar:', r.stderr.strip(), file=sys.stderr)
+    elif action == 'off' and sidebar_pane:
+        subprocess.run(['tmux', 'kill-pane', '-t', sidebar_pane], capture_output=True)
 
 
 def cmd_spawn(args):
