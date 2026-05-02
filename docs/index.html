@@ -162,6 +162,14 @@
       color: var(--fg-mute);
       text-decoration: none;
       letter-spacing: 0.02em;
+      /* Bump the hit area to a touch-friendly minimum without changing
+         the visible row layout — the text still sits on the same
+         baseline, but each link gives finger-tap room above and below.
+         WCAG 2.2 AA target is 24px; we go to 28px for comfort. */
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 4px 0;
     }
     .status-line nav a:hover,
     .status-line nav a:focus-visible { color: var(--green); }
@@ -296,6 +304,14 @@
       border-top: 1px dotted var(--rule);
     }
     dl.kv dt:first-of-type, dl.kv dt:first-of-type + dd { border-top: 0; padding-top: 0.25rem; }
+
+    /* Long single-token inline code (e.g. JT_OUTPUT_FILE_PREFIXES,
+       a 25-char identifier) used to push the body wider than the
+       phone viewport because <code> defaults to no word-breaking and
+       the token has no natural break points. ``overflow-wrap: anywhere``
+       only kicks in when a line genuinely cannot fit; short code spans
+       like <code>jt</code> are unaffected. */
+    code { overflow-wrap: anywhere; }
 
     /* Code blocks — flat, no chrome, no fake window. Lifted surface + green
        hairline so they read as system-output, not just dimmer prose. */
@@ -510,6 +526,39 @@
     /* Reduce blur for users who prefer more static UI. */
     @media (prefers-reduced-motion: reduce) {
       .status-line.top { backdrop-filter: none; }
+    }
+
+    /* Mobile overrides — placed after all base rules so the cascade
+       lets them win on narrow viewports. The earlier ``@media
+       (max-width: 540px)`` block (near .title) was authored before
+       most layout rules, so any rule it tries to override would lose
+       on source order alone. Group phone-specific tweaks here. */
+    @media (max-width: 540px) {
+      /* Stack the glossary / commands / env / refs key-value grids.
+         On desktop dl.kv uses ``grid-template-columns: max-content 1fr``
+         so terms align in a left rail; on phones a single long term
+         (e.g. ``JT_OUTPUT_FILE_PREFIXES`` or ``$XDG_RUNTIME_DIR/jt-state.json``)
+         forces the rail wider than the viewport and shoves the
+         definition off-screen. Stacking is the right call at this width. */
+      dl.kv { grid-template-columns: 1fr; }
+      dl.kv dt { padding: 0.55rem 0 0; overflow-wrap: anywhere; }
+      dl.kv dd { padding: 0.25rem 0 0.55rem; }
+
+      /* Bottom colophon links (latest release ↗, github, issues, releases)
+         live in <span>s, not <nav>, so the .status-line nav rule above
+         doesn't catch them. Give them the same touch-friendly hit area
+         on mobile. The "see also" dt anchors get the same treatment —
+         they're block-level navigation in disguise. Inline links inside
+         body paragraphs (tmux, daemon, claude-scheduler in description /
+         states) intentionally stay at line-height; WCAG 2.2 AA exempts
+         inline text links whose size is constrained by surrounding text. */
+      .status-line a,
+      #see-also dl.kv dt > a {
+        display: inline-flex;
+        align-items: center;
+        min-height: 28px;
+        padding: 4px 0;
+      }
     }
 
     /* Print: drop the chrome, keep the content. Inline the URL after each
