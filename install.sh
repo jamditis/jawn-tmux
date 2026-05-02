@@ -43,10 +43,17 @@ uninstall() {
 }
 
 check() {
-    if ! command -v jt >/dev/null 2>&1; then
-        err "'jt' not on PATH. Run './install.sh' first, or add ~/.local/bin to your PATH."
+    # Resolve the jt entrypoint without requiring PATH — the common
+    # first-install case is "pip put jt in ~/.local/bin but the shell
+    # hasn't been reloaded yet", so PATH-only lookup defeats the
+    # purpose of the action.
+    if command -v jt >/dev/null 2>&1; then
+        exec jt doctor
     fi
-    exec jt doctor
+    if [ -x "$HOME/.local/bin/jt" ]; then
+        exec "$HOME/.local/bin/jt" doctor
+    fi
+    err "'jt' not found in PATH or ~/.local/bin. Run './install.sh' first."
 }
 
 if [ "$ACTION" = "uninstall" ]; then uninstall; fi
@@ -138,10 +145,19 @@ fi
 
 # Smoke check — surface any warnings or fails up front so a failed install
 # isn't masked by the "Done." line. Re-runnable as ./install.sh check or jt doctor.
+# Capture jt doctor's exit code so the installer's own exit reflects health:
+# automated upgrade scripts and CI can then detect a green-pip / red-doctor
+# install without parsing stdout.
+DOCTOR_EXIT=0
 if command -v jt >/dev/null 2>&1; then
     echo "Smoke check (jt doctor):"
-    jt doctor 2>&1 | sed 's/^/  /' || true
+    DOCTOR_OUT="$(jt doctor 2>&1)" || DOCTOR_EXIT=$?
+    printf '%s\n' "$DOCTOR_OUT" | sed 's/^/  /'
     echo
+    if [ "$DOCTOR_EXIT" -ne 0 ]; then
+        warn "doctor reported failures — install completed, but health check did not pass"
+        echo
+    fi
 fi
 
 echo "Try:"
@@ -161,3 +177,8 @@ echo "  Environment=JT_BIND=<your-tailscale-ip>"
 echo "  # then:"
 echo "  systemctl --user daemon-reload"
 echo "  systemctl --user restart jtd"
+
+# Propagate the doctor's exit so callers (CI, upgrade scripts) see
+# "install + health" as one combined status. pip + service install
+# already succeeded by the time we get here; only doctor can flip this.
+exit "$DOCTOR_EXIT"
