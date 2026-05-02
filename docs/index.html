@@ -109,9 +109,17 @@
     }
     .skip:focus { left: 8px; top: 8px; z-index: 1000; }
 
-    a { color: var(--link); text-decoration: underline; text-decoration-color: var(--link-rule); text-underline-offset: 3px; }
-    a:hover { text-decoration-color: var(--link); }
+    a {
+      color: var(--link);
+      text-decoration: underline;
+      text-decoration-color: var(--link-rule);
+      text-underline-offset: 3px;
+      text-decoration-thickness: 1px;
+      transition: text-decoration-color 120ms linear, text-decoration-thickness 120ms linear;
+    }
+    a:hover { text-decoration-color: var(--link); text-decoration-thickness: 2px; }
     a:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; border-radius: 2px; }
+    @media (prefers-reduced-motion: reduce) { a { transition: none; } }
 
     code, kbd, samp, pre { font-family: var(--mono); }
     p code { color: var(--fg); background: var(--bg-soft); padding: 0 4px; border-radius: 2px; }
@@ -127,7 +135,7 @@
       line-height: 1.4;
     }
 
-    ::selection { background: rgba(126,231,135,0.25); color: var(--fg); }
+    ::selection { background: rgba(126,231,135,0.32); color: var(--fg); text-shadow: none; }
 
     /* ─── Status lines (top + bottom) — rendered to look like a tmux status row. */
     .status-line {
@@ -306,9 +314,11 @@
       display: block;
       color: var(--fg-faint);
       font-size: 11px;
-      letter-spacing: 0.1em;
+      letter-spacing: 0.12em;
       text-transform: uppercase;
-      margin-bottom: 0.6rem;
+      margin: 0 0 0.6rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px dotted var(--rule);
     }
     pre .c   { color: var(--fg-faint); font-style: italic; }
     pre .k   { color: var(--green); }
@@ -452,8 +462,12 @@
     figcaption {
       font-family: var(--sans);
       color: var(--fg-faint);
-      font-size: 0.85rem;
-      margin-top: 0.5rem;
+      font-size: 0.78rem;
+      font-style: italic;
+      margin-top: 0.6rem;
+      padding-left: 0.5rem;
+      border-left: 1px solid var(--rule);
+      max-width: 60ch;
     }
 
     /* Architecture box-drawing diagram — preserve whitespace, scrollable on narrow. */
@@ -471,15 +485,25 @@
     .ascii .a-mut   { color: var(--fg-mute); }
     .ascii .a-faint { color: var(--fg-faint); }
 
-    /* Footer */
+    /* Footer — leading green hairline mirrors the section h2 treatment so the
+       colophon reads as a final landmark, not a tail-off. */
     footer.colophon {
       max-width: var(--measure);
       margin: 0 auto;
-      padding: 2.5rem var(--pad) 3rem;
+      padding: 3rem var(--pad) 3rem;
       color: var(--fg-faint);
       font-size: 12.5px;
+      position: relative;
     }
-    footer.colophon p { font-family: var(--mono); color: var(--fg-faint); margin: 0.25rem 0; }
+    footer.colophon::before {
+      content: "";
+      display: block;
+      width: 1.5rem;
+      height: 1px;
+      background: var(--green-deep);
+      margin-bottom: 1.25rem;
+    }
+    footer.colophon p { font-family: var(--mono); color: var(--fg-faint); margin: 0.3rem 0; }
     footer.colophon a { color: var(--fg-mute); text-decoration-color: var(--rule); }
     footer.colophon a:hover { color: var(--green); }
 
@@ -488,12 +512,20 @@
       .status-line.top { backdrop-filter: none; }
     }
 
-    /* Print: drop the chrome, keep the content. */
+    /* Print: drop the chrome, keep the content. Inline the URL after each
+       internal-or-external link so paper readers can find what was hyperlinked. */
     @media print {
-      body { background: white; color: black; }
-      .status-line, footer.colophon, .screen { display: none; }
+      body { background: white; color: black; font-size: 11pt; }
+      body::before { content: none; }
+      .status-line, footer.colophon, .screen, .state-pills { display: none; }
+      h1, h2, h3 { color: black; page-break-after: avoid; }
+      h2::before, footer.colophon::before { background: #888; }
       a { color: black; text-decoration: underline; }
-      pre { border: 1px solid #ccc; background: #fafafa; color: black; }
+      a[href^="http"]::after { content: " <" attr(href) ">"; font-size: 0.85em; color: #555; word-wrap: break-word; }
+      a[href^="#"]::after { content: ""; }
+      pre { border: 1px solid #ccc; background: #fafafa; color: black; page-break-inside: avoid; }
+      figure { page-break-inside: avoid; }
+      hr.rule { border-top: 1px dashed #ccc; }
     }
   </style>
 </head>
