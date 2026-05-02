@@ -32,6 +32,36 @@ def test_list_panes_parses_output():
     assert panes[0] == {'id': '%0', 'command': 'claude'}
 
 
+def test_list_panes_does_not_use_dash_s():
+    """list_panes is window-scoped — used for command labeling in the
+    status table where 'first pane in current window' is the right
+    representative. Border painting needs all session panes, which goes
+    through list_session_panes instead."""
+    with patch('subprocess.run', return_value=make_result('')) as mock_run:
+        tmux.list_panes('morning-wake')
+    args = mock_run.call_args[0][0]
+    assert '-s' not in args
+
+
+def test_list_session_panes_uses_dash_s():
+    """tmux list-panes without -s only returns panes in the current
+    window of the target session. Sessions with multiple windows would
+    have their other-window panes silently skipped during border paints,
+    so the painter uses -s to enumerate the full session."""
+    output = "%0\tclaude\n%5\tbash\n"
+    with patch('subprocess.run', return_value=make_result(output)) as mock_run:
+        panes = tmux.list_session_panes('morning-wake')
+    args = mock_run.call_args[0][0]
+    assert args[:3] == ['tmux', 'list-panes', '-s']
+    assert '-t' in args and 'morning-wake' in args
+    assert [p['id'] for p in panes] == ['%0', '%5']
+
+
+def test_list_session_panes_returns_empty_on_failure():
+    with patch('subprocess.run', return_value=make_result(returncode=1)):
+        assert tmux.list_session_panes('gone') == []
+
+
 def test_first_pane_id_returns_first_pane():
     with patch('subprocess.run', return_value=make_result('%7\tbash\n')):
         assert tmux.first_pane_id('morning-wake') == '%7'

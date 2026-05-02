@@ -119,16 +119,28 @@ def cmd_sidebar(args):
              '-P', '-F', '#{pane_id}', 'jt watch'],
             capture_output=True, text=True,
         )
-        if r.returncode == 0:
-            new_pane = r.stdout.strip()
-            if new_pane:
-                subprocess.run(
-                    ['tmux', 'set-option', '-p', '-t', new_pane,
-                     '@jt_sidebar', '1'],
-                    capture_output=True,
-                )
-        else:
+        if r.returncode != 0:
             print('failed to open sidebar:', r.stderr.strip(), file=sys.stderr)
+            return
+        new_pane = r.stdout.strip()
+        if not new_pane:
+            print('split-window returned no pane id', file=sys.stderr)
+            return
+        tag = subprocess.run(
+            ['tmux', 'set-option', '-p', '-t', new_pane,
+             '@jt_sidebar', '1'],
+            capture_output=True, text=True,
+        )
+        if tag.returncode != 0:
+            # An untagged sidebar would leak — sidebar off/toggle uses
+            # the tag to find it. Roll back the split-window so the
+            # invariant "every sidebar pane is tagged" holds.
+            subprocess.run(
+                ['tmux', 'kill-pane', '-t', new_pane],
+                capture_output=True,
+            )
+            print('failed to tag sidebar pane:', tag.stderr.strip(),
+                  file=sys.stderr)
     elif action == 'off' and sidebar_pane:
         subprocess.run(['tmux', 'kill-pane', '-t', sidebar_pane], capture_output=True)
 

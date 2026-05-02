@@ -51,7 +51,8 @@ def test_read_output_tail_missing_file():
 
 def test_update_borders_calls_set_pane_on_status_change(monkeypatch):
     calls = []
-    monkeypatch.setattr('jt.tmux.first_pane_id', lambda name: '%5')
+    monkeypatch.setattr('jt.tmux.list_session_panes',
+                        lambda name: [{'id': '%5', 'command': 'sleep'}])
     monkeypatch.setattr('jt.tmux.set_pane_status_color',
                         lambda pid, c: calls.append((pid, c)) or True)
     prev = {'morning-wake': {'status': 'active'}}
@@ -60,20 +61,41 @@ def test_update_borders_calls_set_pane_on_status_change(monkeypatch):
     assert calls == [('%5', '#d29922')]
 
 
+def test_update_borders_paints_all_panes_in_multi_window_session(monkeypatch):
+    """Sessions can have multiple windows (and panes within them). The
+    painter must enumerate the whole session via list_session_panes so
+    a multi-window agent run shows consistent border color across all
+    windows, not just the current one."""
+    calls = []
+    monkeypatch.setattr('jt.tmux.list_session_panes',
+                        lambda name: [
+                            {'id': '%5', 'command': 'claude'},
+                            {'id': '%6', 'command': 'tail'},
+                            {'id': '%7', 'command': 'bash'},
+                        ])
+    monkeypatch.setattr('jt.tmux.set_pane_status_color',
+                        lambda pid, c: calls.append((pid, c)) or True)
+    prev = {'morning-wake': {'status': 'active'}}
+    curr = {'morning-wake': {'status': 'done', 'command': 'claude'}}
+    daemon._update_borders(prev, curr)
+    assert calls == [('%5', '#484f58'), ('%6', '#484f58'), ('%7', '#484f58')]
+
+
 def test_update_borders_skips_main(monkeypatch):
     calls = []
-    monkeypatch.setattr('jt.tmux.first_pane_id', lambda name: '%5')
+    monkeypatch.setattr('jt.tmux.list_session_panes',
+                        lambda name: [{'id': '%5', 'command': 'claude'}])
     monkeypatch.setattr('jt.tmux.set_pane_status_color',
                         lambda pid, c: calls.append(pid) or True)
     daemon._update_borders({}, {'main': {'status': 'active', 'command': 'claude'}})
     assert calls == []
 
 
-def test_update_borders_skips_when_session_has_no_pane(monkeypatch):
+def test_update_borders_skips_when_session_has_no_panes(monkeypatch):
     """If a session vanishes between status read and border paint, skip
     quietly — better than tmux returning an error we then log loudly."""
     calls = []
-    monkeypatch.setattr('jt.tmux.first_pane_id', lambda name: None)
+    monkeypatch.setattr('jt.tmux.list_session_panes', lambda name: [])
     monkeypatch.setattr('jt.tmux.set_pane_status_color',
                         lambda pid, c: calls.append(pid) or True)
     prev = {'morning-wake': {'status': 'active'}}
@@ -84,7 +106,8 @@ def test_update_borders_skips_when_session_has_no_pane(monkeypatch):
 
 def test_update_borders_skips_unchanged(monkeypatch):
     calls = []
-    monkeypatch.setattr('jt.tmux.first_pane_id', lambda name: '%5')
+    monkeypatch.setattr('jt.tmux.list_session_panes',
+                        lambda name: [{'id': '%5', 'command': 'claude'}])
     monkeypatch.setattr('jt.tmux.set_pane_status_color',
                         lambda pid, c: calls.append(pid) or True)
     prev = {'morning-wake': {'status': 'silent'}}
@@ -98,7 +121,8 @@ def test_update_borders_logs_on_paint_failure(monkeypatch, caplog):
     must surface in the journal. Previously the daemon ignored
     set_pane_style's return value, so a config bug that broke painting
     on every call was invisible."""
-    monkeypatch.setattr('jt.tmux.first_pane_id', lambda name: '%5')
+    monkeypatch.setattr('jt.tmux.list_session_panes',
+                        lambda name: [{'id': '%5', 'command': 'claude'}])
     monkeypatch.setattr('jt.tmux.set_pane_status_color', lambda pid, c: False)
     prev = {'morning-wake': {'status': 'active'}}
     curr = {'morning-wake': {'status': 'silent', 'command': 'claude'}}

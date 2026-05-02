@@ -129,6 +129,31 @@ def test_sidebar_off_kills_pane_tagged_jt_sidebar():
     assert kill_calls == [['tmux', 'kill-pane', '-t', '%9']]
 
 
+def test_sidebar_on_kills_orphaned_pane_when_tagging_fails():
+    """If split-window succeeds but the follow-up set-option that tags
+    the pane via @jt_sidebar=1 fails (rare race or tmux quirk), the
+    pane is untagged and would leak — sidebar off/toggle uses the tag
+    to find it. Kill the pane to keep the invariant 'every sidebar
+    pane is tagged'."""
+    calls = []
+    def recording(cmd, **kwargs):
+        calls.append(list(cmd))
+        from unittest.mock import MagicMock
+        r = MagicMock(returncode=0, stdout='', stderr='')
+        if cmd[:3] == ['tmux', 'list-panes', '-F']:
+            r.stdout = ''  # no existing sidebar
+        elif cmd[:2] == ['tmux', 'split-window']:
+            r.stdout = '%9\n'
+        elif cmd[:3] == ['tmux', 'set-option', '-p']:
+            r.returncode = 1
+            r.stderr = 'set-option failed'
+        return r
+    with patch('subprocess.run', side_effect=recording):
+        run_jt('sidebar', 'on')
+    kill_calls = [c for c in calls if c[:2] == ['tmux', 'kill-pane']]
+    assert kill_calls == [['tmux', 'kill-pane', '-t', '%9']]
+
+
 def test_sidebar_toggle_opens_when_absent_and_closes_when_present():
     # Absent → on
     calls_a = []

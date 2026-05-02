@@ -26,7 +26,24 @@ def list_sessions() -> list[dict]:
     return sessions
 
 
+def _parse_pane_listing(stdout: str) -> list[dict]:
+    panes = []
+    for line in stdout.strip().splitlines():
+        parts = line.split('\t')
+        if len(parts) == 2:
+            panes.append({'id': parts[0], 'command': parts[1]})
+    return panes
+
+
 def list_panes(session: str) -> list[dict]:
+    """Panes in the session's *current* window.
+
+    Window-scoped because the daemon uses this for command labeling in
+    the status table — "first pane in current window" is a fine
+    representative for a one-line summary. Border painting needs every
+    pane in every window of the session, which goes through
+    :func:`list_session_panes` instead.
+    """
     result = subprocess.run(
         ['tmux', 'list-panes', '-t', session, '-F',
          '#{pane_id}\t#{pane_current_command}'],
@@ -34,12 +51,24 @@ def list_panes(session: str) -> list[dict]:
     )
     if result.returncode != 0:
         return []
-    panes = []
-    for line in result.stdout.strip().splitlines():
-        parts = line.split('\t')
-        if len(parts) == 2:
-            panes.append({'id': parts[0], 'command': parts[1]})
-    return panes
+    return _parse_pane_listing(result.stdout)
+
+
+def list_session_panes(session: str) -> list[dict]:
+    """Every pane in every window of ``session``.
+
+    The ``-s`` flag widens the listing scope from a single window to the
+    whole session. Without it, multi-window agent sessions would have
+    their non-current windows silently skipped during border paints.
+    """
+    result = subprocess.run(
+        ['tmux', 'list-panes', '-s', '-t', session, '-F',
+         '#{pane_id}\t#{pane_current_command}'],
+        capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        return []
+    return _parse_pane_listing(result.stdout)
 
 
 def first_pane_id(session: str) -> Optional[str]:
