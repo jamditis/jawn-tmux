@@ -57,6 +57,18 @@ import sys
 sys.exit(0 if sys.version_info >= (3, 11) else 1)
 PY
 
+# Check tmux version. Status-border format strings need 3.2+; older
+# tmuxes can still run the status table, sidebar, and HTTP probe, so
+# warn rather than abort.
+tmux_version="$(tmux -V | sed -E 's/^tmux ([0-9]+\.[0-9]+).*/\1/')"
+if [ -n "$tmux_version" ]; then
+    tmux_major="${tmux_version%%.*}"
+    tmux_minor="${tmux_version##*.}"
+    if [ "$tmux_major" -lt 3 ] || { [ "$tmux_major" -eq 3 ] && [ "$tmux_minor" -lt 2 ]; }; then
+        warn "tmux $tmux_version detected; status borders need 3.2+ (other features still work)"
+    fi
+fi
+
 # Install Python package. Prefer --user; only fall back to
 # --break-system-packages if PEP 668 is the actual reason pip refused. Keep
 # --user on the fallback path so scripts land in ~/.local/bin (where the

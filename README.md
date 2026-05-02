@@ -43,7 +43,8 @@ Two background pieces:
 jtd (systemd user service)
   ├── polls tmux list-sessions every 2s
   ├── writes $XDG_RUNTIME_DIR/jt-state.json (atomic, mode 0600)
-  ├── updates tmux pane borders via select-pane -P
+  ├── writes the per-pane @jt_status_fg user option on each session,
+  │   which jt.conf reads in pane-border-style to repaint the border
   └── serves :6248/status (bound to 127.0.0.1 by default)
 
 jt (CLI)
@@ -55,7 +56,9 @@ The state file lives under `$XDG_RUNTIME_DIR` (typically `/run/user/$UID`) so it
 
 ## Install
 
-Requires Python 3.11+, tmux 3.0+, systemd. Works on Linux ARM64, x86_64, and WSL2.
+Requires Python 3.11+, tmux 3.2+ (format strings in `pane-border-style`), systemd. Works on Linux ARM64, x86_64, and WSL2.
+
+If you're upgrading from a release before per-pane border painting, reload your tmux config after pulling so the new `pane-border-style` formats take effect: `tmux source-file ~/.tmux.conf`.
 
 ```bash
 git clone https://github.com/jamditis/jawn-tmux.git ~/projects/jawn-tmux
@@ -166,6 +169,7 @@ When something looks wrong, start with:
 jt doctor   # one-shot health report (exit 1 if any check FAILs)
 jt logs -n 50   # last 50 lines of the daemon journal
 jt logs -f      # tail live
+jt logs --since '-10m'   # last 10 minutes (journalctl relative-time form)
 ```
 
 `jt doctor` checks: `$XDG_RUNTIME_DIR`, state file freshness, tmux version, `/tmp` readability, configured marker prefixes, port and bind resolution, daemon HTTP reachability, and the most recent recorded daemon error. Each check reports `OK`, `WARN`, or `FAIL` with a one-line reason; `--json` emits the same data for scripting.

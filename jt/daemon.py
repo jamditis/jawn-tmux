@@ -171,9 +171,18 @@ def _update_borders(prev: dict, curr: dict) -> None:
     for name, info in curr.items():
         if name == 'main':
             continue
-        if info['status'] != prev.get(name, {}).get('status'):
-            color = STATUS_COLORS.get(info['status'], STATUS_COLORS['active'])
-            tmux.set_pane_style(name, '0', color)
+        if info['status'] == prev.get(name, {}).get('status'):
+            continue
+        color = STATUS_COLORS.get(info['status'], STATUS_COLORS['active'])
+        # Paint every pane in every window of the session. Multi-window
+        # agent sessions need consistent border color across all panes;
+        # painting only the first window's first pane left the rest stale.
+        for pane in tmux.list_session_panes(name):
+            pane_id = pane['id']
+            if not tmux.set_pane_status_color(pane_id, color):
+                # Don't raise — paint failures shouldn't kill the poll
+                # loop. Surface to journald so regressions are debuggable.
+                log.warning('failed to paint %s pane %s color=%s', name, pane_id, color)
 
 
 class _StatusHandler(BaseHTTPRequestHandler):

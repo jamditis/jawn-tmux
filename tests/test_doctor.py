@@ -40,6 +40,56 @@ def test_runtime_dir_fail_when_path_missing(monkeypatch, tmp_path):
     assert level == 'fail'
 
 
+def _patch_tmux_version(version_string: str):
+    """Patch shutil.which + subprocess.run so doctor._check_tmux sees a
+    fixed version output without touching the real tmux."""
+    def fake_run(*args, **kwargs):
+        return mock.MagicMock(stdout=version_string, returncode=0)
+    return mock.patch.multiple(
+        'jt.doctor',
+        shutil=mock.MagicMock(which=mock.MagicMock(return_value='/usr/bin/tmux')),
+        subprocess=mock.MagicMock(run=fake_run),
+    )
+
+
+def test_tmux_ok_on_3_2():
+    """Format strings in pane-border-style — the mechanism this PR uses
+    for status borders — landed in tmux 3.2."""
+    with _patch_tmux_version('tmux 3.2\n'):
+        level, msg = doctor._check_tmux()
+    assert level == 'ok'
+    assert '3.2' in msg
+
+
+def test_tmux_ok_on_3_5():
+    with _patch_tmux_version('tmux 3.5\n'):
+        level, _ = doctor._check_tmux()
+    assert level == 'ok'
+
+
+def test_tmux_warn_on_3_1_format_strings_unsupported():
+    """tmux 3.0/3.1 work for the status table and sidebar but the
+    border-painting format strings won't evaluate, so the visual cue
+    silently won't appear. Warn rather than fail — partial functionality
+    is still useful."""
+    with _patch_tmux_version('tmux 3.1c\n'):
+        level, msg = doctor._check_tmux()
+    assert level == 'warn'
+    assert '3.2' in msg
+
+
+def test_tmux_warn_on_3_0():
+    with _patch_tmux_version('tmux 3.0\n'):
+        level, _ = doctor._check_tmux()
+    assert level == 'warn'
+
+
+def test_tmux_fail_on_pre_3_0():
+    with _patch_tmux_version('tmux 2.9a\n'):
+        level, _ = doctor._check_tmux()
+    assert level == 'fail'
+
+
 def test_state_file_fresh_ok(state_file):
     _write_state(state_file)
     level, _ = doctor._check_state_file_fresh()
