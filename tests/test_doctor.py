@@ -66,6 +66,10 @@ def test_state_file_fresh_diagnoses_xdg_mismatch(state_file, tmp_path, monkeypat
     assert level == 'fail'
     assert 'XDG_RUNTIME_DIR' in msg
     assert str(alt) in msg
+    # Suggested fix must use systemd's %U specifier, not shell $(id -u),
+    # because systemd Environment= directives do not expand subshells.
+    assert '/run/user/%U' in msg
+    assert '$(id -u)' not in msg
 
 
 def test_state_file_fresh_fail_when_stale(state_file):

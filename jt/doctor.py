@@ -13,6 +13,7 @@ import subprocess
 import time
 import urllib.error
 import urllib.request
+from pathlib import Path
 from typing import Callable
 
 from jt import daemon, state
@@ -33,14 +34,13 @@ def _check_runtime_dir() -> CheckResult:
     return ('ok', f'using {runtime}')
 
 
-def _alternate_state_paths() -> list:
+def _alternate_state_paths() -> list[Path]:
     """Candidate state file paths besides the one currently configured.
 
     Helps diagnose the common systemd-user-service case where the daemon
     booted without ``XDG_RUNTIME_DIR`` and silently fell back to /tmp,
     while an interactive CLI session resolves it to ``$XDG_RUNTIME_DIR``.
     """
-    from pathlib import Path
     configured = state.STATE_FILE
     alternates = [Path('/tmp/jt-state.json')]
     runtime = os.environ.get('XDG_RUNTIME_DIR')
@@ -58,7 +58,7 @@ def _check_state_file_fresh() -> CheckResult:
             return ('fail',
                     f'no state file at {path}, but a fresh one exists at {other} — '
                     f'the daemon and CLI disagree on $XDG_RUNTIME_DIR. '
-                    f'Add `Environment=XDG_RUNTIME_DIR=/run/user/$(id -u)` to jtd.service '
+                    f'Add `Environment=XDG_RUNTIME_DIR=/run/user/%U` to jtd.service '
                     f'and restart, or set JT_STATE_FILE in both environments.')
         return ('fail', f'no state file at {path}; daemon may not be running')
     try:
