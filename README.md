@@ -15,6 +15,14 @@ tmux session manager for AI agent workflows. Visual pane border attention, live 
 
 ---
 
+## What is this?
+
+If you run several AI agents at once — Claude, an autonomous task runner, a long-running build — each one usually lives in its own [tmux](https://github.com/tmux/tmux/wiki) session (a persistent shell that survives logout). The problem: you can only look at one session at a time, so it's hard to tell which agents are working, which are idle, and which are done without flipping through them.
+
+jawn-tmux watches every session in the background and turns each session's tmux pane border into a status light: **green** while the agent is producing output, **amber** when it has been quiet for more than 20 seconds, **gray** when it finished, **red** on error. It also gives you a sidebar pane with a live table of every session, and a `jt nodes` command that shows the same view across multiple machines on a [Tailscale](https://tailscale.com) network.
+
+**Who is this for?** Linux users who already use tmux and want a glanceable status for parallel agent runs. If you're new to tmux, the [tmux wiki](https://github.com/tmux/tmux/wiki) is a friendlier place to start.
+
 ## What it does
 
 When you run multiple AI agents in parallel tmux sessions, it's hard to tell what's happening without switching between each one. jawn-tmux adds:
@@ -26,11 +34,10 @@ When you run multiple AI agents in parallel tmux sessions, it's hard to tell wha
 
 ## How it works
 
-Two processes:
+Two background pieces:
 
-**`jtd` (daemon)** polls tmux every 2 seconds, writes the state file, updates pane border colors, and serves the state JSON on port 6248 for cross-node polling.
-
-**`jt` (CLI)** reads the state file directly for instant local status and hits remote nodes' HTTP endpoints concurrently for `jt nodes`.
+- **`jtd`** — a small background process (a *daemon*) installed as a systemd user service. Every two seconds it asks tmux which sessions exist, classifies each one's state, repaints the pane borders, and writes a small JSON file describing what it found.
+- **`jt`** — the command-line tool you use. It reads that JSON file directly, so `jt status` is instant. For `jt nodes` it also reaches out to each configured remote machine's `jtd` over HTTP.
 
 ```
 jtd (systemd user service)
@@ -115,7 +122,7 @@ systemctl --user edit jtd
 
 ```ini
 [Service]
-Environment=JT_BIND=100.122.208.15
+Environment=JT_BIND=100.64.0.11
 ```
 
 Editing the unit doesn't restart it — apply the change explicitly:
@@ -129,8 +136,8 @@ Then list your machines in `~/.config/jt/nodes.json`:
 
 ```json
 [
-  {"name": "houseofjawn", "ip": "100.122.208.15", "port": 6248},
-  {"name": "officejawn",  "ip": "100.84.214.24",  "port": 6248}
+  {"name": "houseofjawn", "ip": "100.64.0.11", "port": 6248},
+  {"name": "officejawn",  "ip": "100.64.0.12",  "port": 6248}
 ]
 ```
 
