@@ -1,13 +1,16 @@
 # jt/cli.py
 import argparse
+import json
 import os
 import select
+import shutil
 import subprocess
 import sys
 import termios
 import time
 import tty
 
+from jt import doctor as doctor_mod
 from jt import nodes as nodes_mod
 from jt import render
 from jt import state
@@ -130,6 +133,35 @@ def cmd_attach(args):
     subprocess.run(['tmux', 'attach', '-t', args.name])
 
 
+def cmd_doctor(args):
+    results = doctor_mod.run_checks()
+    if getattr(args, 'json', False):
+        print(json.dumps({'checks': results}, indent=2))
+    else:
+        print(doctor_mod.format_human(results))
+    sys.exit(doctor_mod.exit_code(results))
+
+
+def cmd_logs(args):
+    """Wrap journalctl --user -u jtd so users don't have to remember the incantation."""
+    if not shutil.which('journalctl'):
+        print('journalctl not found; jtd may be running outside systemd.', file=sys.stderr)
+        print('Start the daemon manually with `jtd` to see output on stderr.', file=sys.stderr)
+        sys.exit(1)
+    cmd = ['journalctl', '--user', '-u', 'jtd', '--no-pager']
+    if args.lines:
+        cmd += ['-n', str(args.lines)]
+    if args.since:
+        cmd += ['--since', args.since]
+    if args.follow:
+        cmd += ['-f']
+    try:
+        subprocess.run(cmd, check=False)
+    except KeyboardInterrupt:
+        # journalctl -f exits cleanly on SIGINT; surface a clean prompt instead of a stack trace.
+        sys.exit(0)
+
+
 def cmd_nodes(args):
     local = state.read_state()
     print(render.render_table(local))
@@ -168,6 +200,16 @@ def main():
     p.set_defaults(func=cmd_attach)
 
     sub.add_parser('nodes').set_defaults(func=cmd_nodes)
+
+    p = sub.add_parser('doctor', help='run health checks against the daemon and environment')
+    p.add_argument('--json', action='store_true', help='emit machine-readable JSON')
+    p.set_defaults(func=cmd_doctor)
+
+    p = sub.add_parser('logs', help='tail jtd systemd journal logs')
+    p.add_argument('-f', '--follow', action='store_true', help='follow new entries')
+    p.add_argument('-n', '--lines', type=int, default=50, help='show the last N lines (default 50)')
+    p.add_argument('--since', help='passed through to journalctl --since (e.g. "10m" or "yesterday")')
+    p.set_defaults(func=cmd_logs)
 
     args = parser.parse_args()
     if not hasattr(args, 'func'):

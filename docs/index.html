@@ -574,6 +574,8 @@ jt status</pre>
         <dt>jt kill <span style="color:var(--amber)">&lt;name&gt;</span></dt><dd>kill a tmux session</dd>
         <dt>jt attach <span style="color:var(--amber)">&lt;name&gt;</span></dt><dd>attach to a session</dd>
         <dt>jt nodes</dt><dd>fetch state from configured nodes concurrently and render them together</dd>
+        <dt>jt doctor <span style="color:var(--fg-faint)">[--json]</span></dt><dd>run health checks against the daemon and environment; exit 1 on any FAIL, 0 otherwise</dd>
+        <dt>jt logs <span style="color:var(--fg-faint)">[-f] [-n N] [--since &lt;time&gt;]</span></dt><dd>tail the <code>jtd</code> systemd journal — wraps <code>journalctl --user -u jtd</code> with sensible defaults</dd>
       </dl>
       <p>
         All read-only commands consult the local state file directly — no subprocess
@@ -679,8 +681,49 @@ systemctl --user restart jtd</pre>
         <dt>JT_BIND</dt><dd>HTTP bind interface for <code>jtd</code>; default <code>127.0.0.1</code></dd>
         <dt>JT_PORT</dt><dd>HTTP port; default <code>6248</code></dd>
         <dt>JT_STATE_FILE</dt><dd>override state file path; default <code>$XDG_RUNTIME_DIR/jt-state.json</code></dd>
+        <dt>JT_LOG_LEVEL</dt><dd>daemon log level; default <code>INFO</code> (also <code>DEBUG</code>, <code>WARNING</code>, <code>ERROR</code>)</dd>
+        <dt>JT_OUTPUT_FILE_PREFIXES</dt><dd>comma-separated marker filename prefixes the daemon scans in <code>/tmp</code>; default <code>claude_scheduled,codex_scheduled</code></dd>
         <dt>XDG_RUNTIME_DIR</dt><dd>directory used for the state file when <code>JT_STATE_FILE</code> is not set</dd>
       </dl>
+    </section>
+
+    <hr class="rule" aria-hidden="true">
+
+    <section id="troubleshooting" aria-labelledby="h-troubleshooting">
+      <h2 id="h-troubleshooting">Troubleshooting</h2>
+      <p>
+        When something looks wrong, start with two commands:
+      </p>
+<pre data-prompt="$ diagnose"><span class="c"># one-shot health report; exit 1 if any check FAILs</span>
+jt doctor
+
+<span class="c"># last 50 lines of the daemon journal</span>
+jt logs -n 50
+
+<span class="c"># tail live</span>
+jt logs -f</pre>
+      <p>
+        <code>jt doctor</code> checks <code>$XDG_RUNTIME_DIR</code>, state file freshness, tmux version,
+        <code>/tmp</code> readability, configured marker prefixes, port and bind resolution,
+        daemon HTTP reachability, and the most recent recorded daemon error.
+        Each check reports <code>OK</code>, <code>WARN</code>, or <code>FAIL</code> with a
+        one-line reason; pass <code>--json</code> for the same data in machine-readable form.
+      </p>
+      <p>
+        Common gotcha: if <code>jt status</code> shows nothing while <code>jt doctor</code>
+        reports the daemon HTTP responds but the state file is missing or stale,
+        the daemon and CLI are disagreeing on <code>$XDG_RUNTIME_DIR</code>. Add this to your
+        <code>jtd.service</code> unit and restart:
+      </p>
+<pre data-prompt="~/.config/systemd/user/jtd.service.d/runtime.conf"><span class="c">[Service]</span>
+Environment=XDG_RUNTIME_DIR=/run/user/%U</pre>
+      <p>
+        Daemon-side errors (one-off poll failures, tmux disappearing, etc.) are recorded
+        in the state file as a <code>last_error</code> field and shown as a banner in
+        <code>jt status</code> / <code>jt watch</code> for five minutes.
+        Older errors stay visible to <code>jt doctor</code> for forensic context but stop
+        blocking its exit code.
+      </p>
     </section>
 
     <hr class="rule" aria-hidden="true">

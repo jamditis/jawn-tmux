@@ -216,20 +216,34 @@ def run():
     threading.Thread(target=server.serve_forever, daemon=True).start()
 
     prev_sessions: dict = {}
+    last_sessions: dict = {}
+    last_error: dict | None = None
     while True:
         try:
             raw = tmux.list_sessions()
             now = time.time()
             curr = build_session_state(raw, now)
-            state.write_state(node, curr)
+            last_sessions = curr
+            state.write_state(node, curr, last_error)
             _update_borders(prev_sessions, curr)
             prev_sessions = curr
         except KeyboardInterrupt:
             log.info('shutting down')
             server.shutdown()
             return
-        except Exception:
+        except Exception as e:
             # A poll failure should not crash the daemon, but we want a
-            # traceback in the journal so transient errors are debuggable.
+            # traceback in the journal so transient errors are debuggable
+            # and a structured record in the state file so `jt doctor`
+            # can surface it without users running journalctl themselves.
             log.exception('poll failed')
+            last_error = {
+                'message': str(e),
+                'type': type(e).__name__,
+                'at': int(time.time()),
+            }
+            try:
+                state.write_state(node, last_sessions, last_error)
+            except Exception:
+                log.exception('failed to write error to state file')
         time.sleep(POLL_INTERVAL)

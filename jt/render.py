@@ -37,6 +37,20 @@ def render_session_row(name: str, info: dict) -> str:
     return row + ('\n' + tail_lines if tail_lines else '')
 
 
+_ERROR_BANNER_FRESH_SECS = 300  # 5 min: highlight recent daemon errors prominently
+
+
+def _render_error_banner(data: dict) -> str | None:
+    err = (data or {}).get('last_error')
+    if not err:
+        return None
+    age = max(0, int(time.time()) - err.get('at', 0))
+    msg = err.get('message', 'unknown')
+    color = ANSI['error'] if age <= _ERROR_BANNER_FRESH_SECS else ANSI['dim']
+    label = 'daemon error' if age <= _ERROR_BANNER_FRESH_SECS else 'last daemon error'
+    return f"  {color}! {label} ({age}s ago): {msg}{ANSI['reset']}\n  {ANSI['dim']}run `jt logs` for the full traceback{ANSI['reset']}"
+
+
 def render_table(data: dict) -> str:
     sessions = (data or {}).get('sessions', {})
     if not sessions:
@@ -44,6 +58,10 @@ def render_table(data: dict) -> str:
     node = data.get('node', 'unknown')
     ts = time.strftime('%H:%M:%S', time.localtime(data.get('updated_at', 0)))
     lines = [f"  {ANSI['bold']}{node}{ANSI['reset']}  {ANSI['dim']}{ts}{ANSI['reset']}", '']
+    banner = _render_error_banner(data)
+    if banner:
+        lines.append(banner)
+        lines.append('')
     for name, info in sorted(sessions.items()):
         lines.append(render_session_row(name, info))
         lines.append('')
