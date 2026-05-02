@@ -26,9 +26,12 @@
   <style>
     :root {
       /* Palette — warm dim phosphor, not GitHub neon. All text colors verified
-         against AA contrast on --bg. */
+         against AA contrast on --bg. Surface stack runs deep → bg → soft → elev,
+         giving cards and code blocks a visible lift without color shifts. */
+      --bg-deep:   #07090a;
       --bg:        #0c100d;
       --bg-soft:   #131713;
+      --bg-elev:   #181d18;
       --rule:      #1d231e;
       --rule-soft: #161b16;
 
@@ -67,12 +70,28 @@
     html { -webkit-text-size-adjust: 100%; tab-size: 2; }
     body {
       margin: 0;
-      background: var(--bg);
+      background: var(--bg-deep);
       color: var(--fg);
       font-family: var(--mono);
       font-size: 15px;
       line-height: 1.55;
-      font-feature-settings: "ss02", "calt";
+      font-feature-settings: "ss02", "calt", "tnum";
+      position: relative;
+      min-height: 100vh;
+    }
+    /* Atmospheric glow — anchored at top, fades by the second viewport, so it
+       reads as ambient phosphor without dominating the content below the fold. */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(ellipse 80% 60% at 50% -10%,
+          rgba(63,185,80,0.08) 0%,
+          rgba(63,185,80,0.02) 35%,
+          transparent 70%);
+      z-index: -1;
     }
 
     /* Skip-to-content link for keyboard users. Visible on focus. */
@@ -101,8 +120,8 @@
       padding: 1px 6px;
       border: 1px solid var(--rule);
       border-bottom-width: 2px;
-      border-radius: 3px;
-      background: var(--bg-soft);
+      border-radius: 2px;
+      background: var(--bg-elev);
       color: var(--fg);
       font-size: 0.9em;
       line-height: 1.4;
@@ -190,7 +209,7 @@
     .title .h1-name { color: var(--fg-mute); font-weight: 400; margin-left: 0.5rem; }
     .title .right { color: var(--fg-faint); font-size: 0.85rem; letter-spacing: 0.02em; }
 
-    section { margin: 2.25rem 0; scroll-margin-top: 4rem; }
+    section { margin: clamp(2rem, 4vw, 3.25rem) 0; scroll-margin-top: 4rem; }
     section + section { padding-top: 0; }
 
     h2 {
@@ -225,12 +244,13 @@
     dl.kv dt { font-family: var(--mono); color: var(--fg); }
     dl.kv dd { margin: 0; color: var(--fg-mute); font-family: var(--sans); }
 
-    /* Code blocks — flat, no chrome, no fake window. */
+    /* Code blocks — flat, no chrome, no fake window. Lifted surface + green
+       hairline so they read as system-output, not just dimmer prose. */
     pre {
       margin: 0.5rem 0 1.5rem;
       padding: 1rem 1.25rem;
-      background: var(--bg-soft);
-      border-left: 2px solid var(--rule);
+      background: var(--bg-elev);
+      border-left: 2px solid var(--green-deep);
       overflow-x: auto;
       color: var(--fg);
       font-size: 13.5px;
@@ -320,6 +340,46 @@
     .states .glyph.silent { color: var(--amber); }
     .states .glyph.done   { color: var(--gray);  }
     .states .glyph.error  { color: var(--red);   }
+
+    /* Status pill swatches — show each border color as a visual chip in addition
+       to the inline list, so the abstract palette becomes concrete. Mirrors the
+       actual pane border the daemon paints. */
+    .state-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin: 0 0 1.5rem;
+      padding: 0;
+      list-style: none;
+    }
+    .state-pills li {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.35rem 0.7rem;
+      background: var(--bg-elev);
+      border: 1px solid var(--rule);
+      border-left-width: 3px;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--fg-mute);
+      letter-spacing: 0.04em;
+    }
+    .state-pills li code { background: transparent; padding: 0; color: var(--fg); }
+    .state-pills .swatch {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+    .state-pills .pill-active { border-left-color: var(--green-deep); }
+    .state-pills .pill-active .swatch  { background: var(--green-deep); box-shadow: 0 0 6px rgba(63,185,80,0.55); }
+    .state-pills .pill-silent { border-left-color: var(--amber); }
+    .state-pills .pill-silent .swatch  { background: var(--amber); }
+    .state-pills .pill-done   { border-left-color: var(--gray); }
+    .state-pills .pill-done .swatch    { background: var(--gray); }
+    .state-pills .pill-error  { border-left-color: var(--red); }
+    .state-pills .pill-error .swatch   { background: var(--red); }
 
     /* Inline divider, like a manpage section break. */
     hr.rule {
@@ -499,6 +559,13 @@
         <li><span class="glyph silent">~</span><span class="name">silent</span><span class="why">no output for 20 seconds or more</span></li>
         <li><span class="glyph done">✓</span><span class="name">done</span><span class="why">a <code>CLAUDE_TASK_COMPLETE:0</code> marker was written</span></li>
         <li><span class="glyph error">✗</span><span class="name">error</span><span class="why">a non-zero exit code was written to the marker</span></li>
+      </ul>
+
+      <ul class="state-pills" aria-label="Pane border colors painted by jtd for each status">
+        <li class="pill-active"><span class="swatch" aria-hidden="true"></span><code>active</code> #3fb950</li>
+        <li class="pill-silent"><span class="swatch" aria-hidden="true"></span><code>silent</code> #d29922</li>
+        <li class="pill-done"><span class="swatch" aria-hidden="true"></span><code>done</code> #484f58</li>
+        <li class="pill-error"><span class="swatch" aria-hidden="true"></span><code>error</code> #f85149</li>
       </ul>
       <p>
         The <code>done</code>/<code>error</code> states are read from a marker line in
