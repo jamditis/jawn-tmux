@@ -19,7 +19,7 @@ tmux session manager for AI agent workflows. Visual pane border attention, live 
 
 If you run several AI agents at once — Claude, an autonomous task runner, a long-running build — each one usually lives in its own [tmux](https://github.com/tmux/tmux/wiki) session (a persistent shell that survives logout). The problem: you can only look at one session at a time, so it's hard to tell which agents are working, which are idle, and which are done without flipping through them.
 
-jawn-tmux watches every session in the background and turns each session's tmux pane border into a status light: **green** while the agent is producing output, **amber** when it has been quiet for more than 20 seconds, **gray** when it finished, **red** on error. It also gives you a sidebar pane with a live table of every session, and a `jt nodes` command that shows the same view across multiple machines on a [Tailscale](https://tailscale.com) network.
+jawn-tmux watches every session in the background and turns each session's tmux pane border into a status light: **green** while the agent is producing output, **amber** when it has been quiet for more than 20 seconds, **gray** when finished, **red** on error. It also gives you a sidebar pane with a live table of every session, and a `jt nodes` command that shows the same view across multiple machines on a [Tailscale](https://tailscale.com) network.
 
 **Who is this for?** Linux users who already use tmux and want a glanceable status for parallel agent runs. If you're new to tmux, the [tmux wiki](https://github.com/tmux/tmux/wiki) is a friendlier place to start.
 
@@ -122,8 +122,10 @@ systemctl --user edit jtd
 
 ```ini
 [Service]
-Environment=JT_BIND=100.64.0.11
+Environment=JT_BIND=<your-tailscale-ip>
 ```
+
+(replace `<your-tailscale-ip>` with the actual address you see in `tailscale status` for this machine — `100.64.0.11` is just a placeholder.)
 
 Editing the unit doesn't restart it — apply the change explicitly:
 
