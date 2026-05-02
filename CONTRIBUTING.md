@@ -7,11 +7,16 @@ Thanks for your interest. Contributions are welcome — bug reports, feature req
 ```bash
 git clone https://github.com/jamditis/jawn-tmux.git
 cd jawn-tmux
-pip3 install --break-system-packages -e .
+
+# Editable install. Try --user first; on PEP 668 systems (recent Debian/Ubuntu)
+# pip will refuse and you'll need --break-system-packages — this is what
+# install.sh does automatically.
+pip3 install --user -e . || pip3 install --user --break-system-packages -e .
+
 python3 -m pytest -v
 ```
 
-All 56 tests should pass. No third-party deps required.
+All tests should pass — no third-party runtime deps. Test count grows over time; `python3 -m pytest -v | tail -1` shows the current total.
 
 ## Ground rules
 

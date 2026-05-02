@@ -4,7 +4,7 @@
 [![python](https://img.shields.io/badge/python-3.11%2B-3fb950?style=flat-square&labelColor=0d120d)](https://python.org)
 [![license](https://img.shields.io/badge/license-MIT-484f58?style=flat-square&labelColor=0d120d)](LICENSE)
 [![platform](https://img.shields.io/badge/platform-linux%20arm64%20%7C%20x86%20%7C%20wsl2-484f58?style=flat-square&labelColor=0d120d)](#install)
-[![tests](https://img.shields.io/badge/tests-93%20passing-3fb950?style=flat-square&labelColor=0d120d)](tests/)
+[![tests](https://img.shields.io/badge/tests-passing-3fb950?style=flat-square&labelColor=0d120d)](tests/)
 [![stdlib only](https://img.shields.io/badge/deps-stdlib%20only-3fb950?style=flat-square&labelColor=0d120d)](#)
 
 tmux session manager for AI agent workflows. Visual pane border attention, live sidebar, cross-node status.
@@ -75,8 +75,39 @@ The installer:
 Verify it's running:
 ```bash
 systemctl --user status jtd
-jt status
+jt status                  # or: ./install.sh check
 ```
+
+## After install
+
+`jt status` should print at least your current tmux session, with a colored status word:
+
+```
+houseofjawn  15:30:00
+
+  main                   active   ●  0s     bash
+```
+
+Status words map to pane border colors via per-pane format strings, so you can glance at any tmux pane and see its session's state at a glance — see [Session states](#session-states) for the full table. Spawn a demo to watch it in action:
+
+```bash
+jt spawn demo 'sleep 60'
+jt status                  # demo appears within ~2s, border lights green
+sleep 25 && jt status      # demo flips to silent (amber) after 20s of no output
+jt kill demo
+```
+
+If `jt status` only shows `main` despite other tmux sessions running, or if the table is empty, run `jt doctor` (or `./install.sh check`) to see what's off — the daemon socket, state file freshness, and tmux version are the usual suspects.
+
+## Upgrading
+
+```bash
+cd ~/projects/jawn-tmux
+git pull
+./install.sh
+```
+
+The installer is idempotent. It re-runs the pip install, restarts the daemon in place, and runs `jt doctor` to confirm everything still works. If you have an active tmux server and the upgrade touched `tmux/jt.conf` (e.g. new keybindings or border-style formats), the installer reloads the config for you. New tmux clients pick up the new config automatically.
 
 ## Commands
 
@@ -192,7 +223,7 @@ pip3 install --break-system-packages -e .
 python3 -m pytest -v
 ```
 
-93 tests, stdlib only, no third-party runtime deps.
+Stdlib only, no third-party runtime deps. Run `python3 -m pytest -v` to see the current test count.
 
 ## File layout
 
@@ -206,7 +237,7 @@ jawn-tmux/
 │   ├── tmux.py       # subprocess wrappers
 │   ├── nodes.py      # cross-node HTTP client
 │   └── doctor.py     # `jt doctor` health checks
-├── tests/            # 56 pytest tests
+├── tests/            # pytest unit tests
 ├── config/
 │   └── nodes.json    # default node definitions
 ├── systemd/
