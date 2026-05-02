@@ -7,11 +7,17 @@ Thanks for your interest. Contributions are welcome — bug reports, feature req
 ```bash
 git clone https://github.com/jamditis/jawn-tmux.git
 cd jawn-tmux
-pip3 install --break-system-packages -e .
+
+# Editable install. On PEP 668 systems (recent Debian/Ubuntu) pip will
+# refuse with "error: externally-managed-environment" — in that case add
+# --break-system-packages to the same command. install.sh does this
+# fallback automatically, but only on that specific error string.
+pip3 install --user -e .
+
 python3 -m pytest -v
 ```
 
-All 56 tests should pass. No third-party deps required.
+All tests should pass — no third-party runtime deps. Test count grows over time; `python3 -m pytest -v | tail -1` shows the current total.
 
 ## Ground rules
 

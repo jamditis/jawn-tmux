@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # install.sh — set up jawn-tmux on this machine.
 #   ./install.sh            install (default)
+#   ./install.sh check      run jt doctor without installing
 #   ./install.sh uninstall  remove the systemd unit and tmux source-file line
 set -euo pipefail
 
@@ -41,8 +42,23 @@ uninstall() {
     exit 0
 }
 
+check() {
+    # Resolve the jt entrypoint without requiring PATH — the common
+    # first-install case is "pip put jt in ~/.local/bin but the shell
+    # hasn't been reloaded yet", so PATH-only lookup defeats the
+    # purpose of the action.
+    if command -v jt >/dev/null 2>&1; then
+        exec jt doctor
+    fi
+    if [ -x "$HOME/.local/bin/jt" ]; then
+        exec "$HOME/.local/bin/jt" doctor
+    fi
+    err "'jt' not found in PATH or ~/.local/bin. Run './install.sh' first."
+}
+
 if [ "$ACTION" = "uninstall" ]; then uninstall; fi
-if [ "$ACTION" != "install" ]; then err "unknown action: $ACTION"; fi
+if [ "$ACTION" = "check" ]; then check; fi
+if [ "$ACTION" != "install" ]; then err "unknown action: $ACTION (try install, check, or uninstall)"; fi
 
 echo "Installing jawn-tmux from $REPO_DIR..."
 
@@ -103,18 +119,54 @@ if command -v systemctl >/dev/null 2>&1; then
     note "installed and started $SERVICE_FILE"
 fi
 
-# Reload tmux config in any active session.
-if tmux info >/dev/null 2>&1; then
+# Reload tmux config in any active server. ``tmux info`` requires a
+# *client* context which a subshell doesn't have even when $TMUX is set,
+# so it reported "no active session" inside running tmux panes;
+# ``tmux ls`` only needs a server.
+if tmux ls >/dev/null 2>&1; then
     tmux source-file "$TMUX_CONF" && note "reloaded tmux config"
 else
-    note "no active tmux session — run 'tmux source ~/.tmux.conf' to load keybindings"
+    note "no tmux server running — start tmux to pick up the new keybindings"
 fi
 
 echo
 echo "Done."
+
+# PATH note before any jt commands so the user isn't told to "run jt status"
+# while jt isn't reachable. ~/.local/bin is what pip --user installs into;
+# distros that don't include it on the default PATH (Debian / Ubuntu without
+# a login-shell init) need a manual append.
+if ! command -v jt >/dev/null 2>&1; then
+    warn "'jt' not on PATH (pip installed it under ~/.local/bin)"
+    note "add it now:"
+    note "  echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.bashrc && source ~/.bashrc"
+    echo
+fi
+
+# Smoke check — surface any warnings or fails up front so a failed install
+# isn't masked by the "Done." line. Re-runnable as ./install.sh check or jt doctor.
+# Capture jt doctor's exit code so the installer's own exit reflects health:
+# automated upgrade scripts and CI can then detect a green-pip / red-doctor
+# install without parsing stdout.
+DOCTOR_EXIT=0
+if command -v jt >/dev/null 2>&1; then
+    echo "Smoke check (jt doctor):"
+    DOCTOR_OUT="$(jt doctor 2>&1)" || DOCTOR_EXIT=$?
+    printf '%s\n' "$DOCTOR_OUT" | sed 's/^/  /'
+    echo
+    if [ "$DOCTOR_EXIT" -ne 0 ]; then
+        warn "doctor reported failures — install completed, but health check did not pass"
+        echo
+    fi
+fi
+
+echo "Try:"
 echo "  jt status                 — show sessions"
 echo "  Ctrl+B a                  — popup"
 echo "  Ctrl+B Shift+A            — sidebar toggle"
+echo
+echo "Re-run health checks anytime:"
+echo "  jt doctor                 (or ./install.sh check from this directory)"
 echo
 echo "Cross-node aggregation is off by default (jtd binds to 127.0.0.1)."
 echo "To enable it, drop in an override and restart the daemon:"
@@ -125,8 +177,8 @@ echo "  Environment=JT_BIND=<your-tailscale-ip>"
 echo "  # then:"
 echo "  systemctl --user daemon-reload"
 echo "  systemctl --user restart jtd"
-echo
-if ! command -v jt >/dev/null 2>&1; then
-    echo "Note: 'jt' not on PATH. Add ~/.local/bin to PATH:"
-    echo "  echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.bashrc && source ~/.bashrc"
-fi
+
+# Propagate the doctor's exit so callers (CI, upgrade scripts) see
+# "install + health" as one combined status. pip + service install
+# already succeeded by the time we get here; only doctor can flip this.
+exit "$DOCTOR_EXIT"
