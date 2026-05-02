@@ -4,7 +4,7 @@
 [![python](https://img.shields.io/badge/python-3.11%2B-3fb950?style=flat-square&labelColor=0d120d)](https://python.org)
 [![license](https://img.shields.io/badge/license-MIT-484f58?style=flat-square&labelColor=0d120d)](LICENSE)
 [![platform](https://img.shields.io/badge/platform-linux%20arm64%20%7C%20x86%20%7C%20wsl2-484f58?style=flat-square&labelColor=0d120d)](#install)
-[![tests](https://img.shields.io/badge/tests-56%20passing-3fb950?style=flat-square&labelColor=0d120d)](tests/)
+[![tests](https://img.shields.io/badge/tests-87%20passing-3fb950?style=flat-square&labelColor=0d120d)](tests/)
 [![stdlib only](https://img.shields.io/badge/deps-stdlib%20only-3fb950?style=flat-square&labelColor=0d120d)](#)
 
 tmux session manager for AI agent workflows. Visual pane border attention, live sidebar, cross-node status.
@@ -87,6 +87,8 @@ jt status
 | `jt kill <name>` | Kill a session |
 | `jt attach <name>` | Attach to a session |
 | `jt nodes` | Aggregate status from all configured nodes |
+| `jt doctor` | Run health checks against the daemon and environment (`--json` for machine-readable output) |
+| `jt logs` | Tail `jtd` systemd journal (`-f` follow, `-n N` lines, `--since 10m`) |
 
 ## Tmux keybindings
 
@@ -154,6 +156,28 @@ combined view. Unreachable nodes are shown as such without blocking.
 | `JT_PORT` | `6248` | HTTP port. |
 | `JT_STATE_FILE` | `$XDG_RUNTIME_DIR/jt-state.json`, then `/tmp/jt-state.json` | Override the state file path. |
 | `JT_LOG_LEVEL` | `INFO` | Log level for the daemon (`DEBUG`, `INFO`, `WARNING`, `ERROR`). |
+| `JT_OUTPUT_FILE_PREFIXES` | `claude_scheduled,codex_scheduled` | Comma-separated marker filename prefixes the daemon scans in `/tmp`. Add custom runner prefixes here. |
+
+## Troubleshooting
+
+When something looks wrong, start with:
+
+```bash
+jt doctor   # one-shot health report (exit 1 if any check FAILs)
+jt logs -n 50   # last 50 lines of the daemon journal
+jt logs -f      # tail live
+```
+
+`jt doctor` checks: `$XDG_RUNTIME_DIR`, state file freshness, tmux version, `/tmp` readability, configured marker prefixes, port and bind resolution, daemon HTTP reachability, and the most recent recorded daemon error. Each check reports `OK`, `WARN`, or `FAIL` with a one-line reason; `--json` emits the same data for scripting.
+
+If `jt status` shows nothing while `jt doctor` reports the daemon HTTP responds but the state file is missing or stale, the daemon and CLI are likely disagreeing on `$XDG_RUNTIME_DIR`. Add this to your `jtd.service` and restart:
+
+```ini
+[Service]
+Environment=XDG_RUNTIME_DIR=/run/user/%U
+```
+
+Daemon-side errors (one-off poll failures, tmux disappearing, etc.) are recorded in the state file as a `last_error` field and shown as a banner in `jt status` / `jt watch` for five minutes. Older errors stay visible to `jt doctor` for forensic context but stop blocking the doctor's exit code.
 
 ## Development
 
@@ -164,7 +188,7 @@ pip3 install --break-system-packages -e .
 python3 -m pytest -v
 ```
 
-56 tests, stdlib only, no third-party runtime deps.
+87 tests, stdlib only, no third-party runtime deps.
 
 ## File layout
 
@@ -176,7 +200,8 @@ jawn-tmux/
 │   ├── state.py      # read/write /tmp/jt-state.json
 │   ├── render.py     # table, watch loop, popup layout
 │   ├── tmux.py       # subprocess wrappers
-│   └── nodes.py      # cross-node HTTP client
+│   ├── nodes.py      # cross-node HTTP client
+│   └── doctor.py     # `jt doctor` health checks
 ├── tests/            # 56 pytest tests
 ├── config/
 │   └── nodes.json    # default node definitions

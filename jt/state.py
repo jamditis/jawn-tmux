@@ -34,12 +34,14 @@ def read_state() -> dict:
         return {}
 
 
-def write_state(node: str, sessions: dict) -> None:
+def write_state(node: str, sessions: dict, last_error: dict | None = None) -> None:
     data = {
         'node': node,
         'updated_at': int(time.time()),
         'sessions': sessions,
     }
+    if last_error is not None:
+        data['last_error'] = last_error
     STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
 
     # Use mkstemp to get a unique name with O_EXCL semantics: this defeats

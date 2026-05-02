@@ -1,4 +1,5 @@
 # tests/test_render.py
+import time
 from jt import render
 
 
@@ -73,3 +74,36 @@ def test_render_session_row_no_output_tail():
     info = {'status': 'active', 'elapsed_secs': 10, 'command': 'claude'}
     row = render.render_session_row('test', info)
     assert 'test' in row  # no crash, no tail lines
+
+
+def _table_with_sessions(**top_level):
+    return {
+        'node': 'testbox', 'updated_at': int(time.time()),
+        'sessions': {
+            'morning-wake': {
+                'name': 'morning-wake', 'status': 'active', 'command': 'claude',
+                'elapsed_secs': 10, 'last_activity_secs': 5, 'output_tail': [],
+            },
+        },
+        **top_level,
+    }
+
+
+def test_render_table_no_banner_when_no_last_error():
+    out = render.render_table(_table_with_sessions())
+    assert 'daemon error' not in out
+
+
+def test_render_table_shows_fresh_banner_for_recent_error():
+    err = {'message': 'tmux gone', 'at': int(time.time()) - 5}
+    out = render.render_table(_table_with_sessions(last_error=err))
+    assert 'daemon error' in out
+    assert 'tmux gone' in out
+    assert '`jt logs`' in out
+
+
+def test_render_table_dims_banner_for_old_error():
+    err = {'message': 'old hiccup', 'at': int(time.time()) - 9999}
+    out = render.render_table(_table_with_sessions(last_error=err))
+    assert 'last daemon error' in out
+    assert 'old hiccup' in out
