@@ -88,6 +88,12 @@ def _check_tmux() -> CheckResult:
     major, minor = int(match.group(1)), int(match.group(2))
     if (major, minor) < (3, 0):
         return ('fail', f'tmux {major}.{minor} is too old; need 3.0+')
+    if (major, minor) < (3, 2):
+        # Format strings in pane-border-style landed in 3.2; the status
+        # borders this tool's central feature relies on won't render
+        # below that. The status table, sidebar, and HTTP status all
+        # still work, so warn rather than fail.
+        return ('warn', f'tmux {major}.{minor} ({binary}); status borders need 3.2+')
     return ('ok', f'tmux {major}.{minor} ({binary})')
 
 
