@@ -132,9 +132,12 @@ def _check_bind() -> CheckResult:
 def _check_daemon_http() -> CheckResult:
     bind = daemon._resolve_bind()
     port = daemon._resolve_port()
-    # 0.0.0.0 means "all interfaces" — connect to loopback for the probe.
+    # 0.0.0.0 / :: mean "all interfaces" — connect to loopback for the probe.
     host = '127.0.0.1' if bind in ('0.0.0.0', '::') else bind
-    url = f'http://{host}:{port}/status'
+    # IPv6 literals must be bracket-wrapped in URLs (RFC 3986 §3.2.2),
+    # otherwise urllib parses the trailing :port as part of the address.
+    host_in_url = f'[{host}]' if ':' in host else host
+    url = f'http://{host_in_url}:{port}/status'
     try:
         with urllib.request.urlopen(url, timeout=2) as resp:
             if resp.status != 200:

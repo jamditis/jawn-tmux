@@ -137,3 +137,25 @@ def test_find_output_file_respects_env_override(monkeypatch, tmp_path):
 def test_resolve_output_file_prefixes_ignores_blank_entries(monkeypatch):
     monkeypatch.setenv('JT_OUTPUT_FILE_PREFIXES', '  , ,  ')
     assert daemon._resolve_output_file_prefixes() == daemon.DEFAULT_OUTPUT_FILE_PREFIXES
+
+
+def test_should_clear_last_error_false_when_none():
+    assert daemon._should_clear_last_error(None, time.time()) is False
+
+
+def test_should_clear_last_error_false_when_inside_visibility_window():
+    now = time.time()
+    err = {'message': 'x', 'at': int(now - 60)}
+    assert daemon._should_clear_last_error(err, now) is False
+
+
+def test_should_clear_last_error_true_after_visibility_window():
+    now = time.time()
+    err = {'message': 'x', 'at': int(now - daemon.LAST_ERROR_VISIBILITY_SECS - 10)}
+    assert daemon._should_clear_last_error(err, now) is True
+
+
+def test_should_clear_last_error_handles_missing_at_key():
+    """Defensive: malformed last_error without 'at' should still clear,
+    not raise. A missing 'at' is treated as epoch 0 so age is huge."""
+    assert daemon._should_clear_last_error({'message': 'orphaned'}, time.time()) is True
