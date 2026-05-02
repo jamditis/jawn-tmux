@@ -9,8 +9,8 @@ from jt import nodes
 def nodes_config(tmp_path, monkeypatch):
     cfg = tmp_path / 'nodes.json'
     cfg.write_text(json.dumps([
-        {'name': 'houseofjawn', 'ip': '100.122.208.15', 'port': 6248},
-        {'name': 'officejawn',  'ip': '100.84.214.24',  'port': 6248},
+        {'name': 'houseofjawn', 'ip': '100.64.0.11', 'port': 6248},
+        {'name': 'officejawn',  'ip': '100.64.0.12',  'port': 6248},
     ]))
     monkeypatch.setattr(nodes, 'NODES_FILE', cfg)
 

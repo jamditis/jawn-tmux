@@ -385,10 +385,11 @@
       <span class="here"><span class="idx" aria-hidden="true">[0]</span><a href="#name">name</a></span>
       <span><span class="idx" aria-hidden="true">[1]</span><a href="#synopsis">synopsis</a></span>
       <span><span class="idx" aria-hidden="true">[2]</span><a href="#description">description</a></span>
-      <span><span class="idx" aria-hidden="true">[3]</span><a href="#install">install</a></span>
-      <span><span class="idx" aria-hidden="true">[4]</span><a href="#commands">commands</a></span>
-      <span><span class="idx" aria-hidden="true">[5]</span><a href="#architecture">architecture</a></span>
-      <span><span class="idx" aria-hidden="true">[6]</span><a href="https://github.com/jamditis/jawn-tmux">source ↗</a></span>
+      <span><span class="idx" aria-hidden="true">[3]</span><a href="#glossary">glossary</a></span>
+      <span><span class="idx" aria-hidden="true">[4]</span><a href="#install">install</a></span>
+      <span><span class="idx" aria-hidden="true">[5]</span><a href="#commands">commands</a></span>
+      <span><span class="idx" aria-hidden="true">[6]</span><a href="#architecture">architecture</a></span>
+      <span><span class="idx" aria-hidden="true">[7]</span><a href="https://github.com/jamditis/jawn-tmux">source ↗</a></span>
     </nav>
     <span class="spacer" aria-hidden="true"></span>
     <span class="host" aria-hidden="true"><span class="dot"></span>jawn-tmux v0.1</span>
@@ -398,7 +399,7 @@
     <header class="title">
       <h1>
         <span class="h1-cmd">jt</span><span class="h1-num">(1)</span>
-        <span class="h1-name">— user commands</span>
+        <span class="h1-name">— tmux pane status for AI agents</span>
       </h1>
       <span class="right">linux · arm64 · x86_64 · wsl2</span>
     </header>
@@ -428,15 +429,30 @@
     <section id="description" aria-labelledby="h-description">
       <h2 id="h-description">Description</h2>
       <p>
-        Running multiple AI agents in parallel tmux sessions creates a problem: you
-        cannot tell what is happening in each one without switching to it. The
-        <code>jtd</code> daemon polls tmux every two seconds, classifies each session
-        from output activity and exit markers, repaints the pane border, and writes a
-        small JSON state file. The <code>jt</code> CLI reads that file and renders.
+        If you run several AI agents at once — Claude, an autonomous task
+        runner, a long-build — each one usually lives in its own
+        <a href="#glossary">tmux</a> session (a persistent shell that survives
+        logout). The problem: you can only look at one session at a time, so
+        it's hard to tell which agents are working, which are idle, and which
+        are done without flipping through them.
       </p>
       <p>
-        No third-party runtime dependencies. Linux, WSL2, ARM64. The <code>main</code>
-        session’s pane border is never touched.
+        <code>jt</code> turns each session's tmux pane border into a status
+        light: green while output is flowing, amber when it has been quiet for
+        more than 20&nbsp;seconds, gray when finished, red on error. It also
+        gives you a sidebar with a live table of every session and a
+        <code>jt&nbsp;nodes</code> command that shows the same view across
+        machines.
+      </p>
+      <p>
+        Under the hood, two pieces:
+        <strong><code>jtd</code></strong>, a small background process (a
+        <a href="#glossary">daemon</a>) that polls tmux every two seconds,
+        classifies each session, repaints the pane border, and writes a JSON
+        state file; and <strong><code>jt</code></strong>, the CLI you actually
+        use, which reads that file directly so <code>jt&nbsp;status</code> is
+        instant. No third-party runtime dependencies. Linux, WSL2, ARM64. The
+        <code>main</code> session's pane border is never touched.
       </p>
     </section>
 
@@ -477,6 +493,23 @@
         Sessions without a scheduler-managed log only ever go between <code>active</code>
         and <code>silent</code>.
       </p>
+    </section>
+
+    <hr class="rule" aria-hidden="true">
+
+    <section id="glossary" aria-labelledby="h-glossary">
+      <h2 id="h-glossary">Glossary</h2>
+      <p>Terms used elsewhere on this page, briefly defined.</p>
+      <dl class="kv">
+        <dt>tmux</dt><dd>terminal multiplexer; lets you keep many shells open inside one terminal window, with sessions that survive logout</dd>
+        <dt>session</dt><dd>a single tmux instance with one or more windows and panes; <code>jt</code> watches one per agent</dd>
+        <dt>pane</dt><dd>a region inside a tmux split; <code>jt</code> changes its border color to signal status</dd>
+        <dt>daemon</dt><dd>a long-running background process; here, <code>jtd</code> launched by your user's systemd</dd>
+        <dt>systemd user service</dt><dd>a unit run by Linux's service manager under your account, started on login and restarted on crash</dd>
+        <dt>Tailscale</dt><dd>a private mesh VPN that gives every machine a stable IP in the <code>100.64.0.0/10</code> range; <code>jt&nbsp;nodes</code> uses it to talk to other machines without exposing them to the public internet</dd>
+        <dt>$XDG_RUNTIME_DIR</dt><dd>a per-user, per-login temporary directory (e.g. <code>/run/user/1000</code>); the state file lives there because it is private to you and wiped on logout</dd>
+        <dt>marker</dt><dd>the literal line <code>CLAUDE_TASK_COMPLETE:0</code> (or <code>:1</code> for failure) appended to an agent's log when it finishes; this is what flips a session to <code>done</code> or <code>error</code></dd>
+      </dl>
     </section>
 
     <hr class="rule" aria-hidden="true">
@@ -583,8 +616,8 @@ jt status</pre>
       <h3 id="h-nodes">Cross-node setup</h3>
       <p>List your machines in <code>~/.config/jt/nodes.json</code>:</p>
 <pre data-prompt="~/.config/jt/nodes.json">[
-  { <span class="s">"name"</span>: <span class="s">"houseofjawn"</span>, <span class="s">"ip"</span>: <span class="s">"100.122.208.15"</span>, <span class="s">"port"</span>: 6248 },
-  { <span class="s">"name"</span>: <span class="s">"officejawn"</span>,  <span class="s">"ip"</span>: <span class="s">"100.84.214.24"</span>,  <span class="s">"port"</span>: 6248 }
+  { <span class="s">"name"</span>: <span class="s">"houseofjawn"</span>, <span class="s">"ip"</span>: <span class="s">"100.64.0.11"</span>, <span class="s">"port"</span>: 6248 },
+  { <span class="s">"name"</span>: <span class="s">"officejawn"</span>,  <span class="s">"ip"</span>: <span class="s">"100.64.0.12"</span>,  <span class="s">"port"</span>: 6248 }
 ]</pre>
       <p>
         On each node, drop in a unit override and restart the daemon so it

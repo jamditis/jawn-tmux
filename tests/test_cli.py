@@ -51,8 +51,8 @@ def test_nodes_shows_local_and_skips_unreachable():
     fake_local = {'node': 'houseofjawn', 'updated_at': 0, 'sessions': {}}
     with patch('jt.state.read_state', return_value=fake_local), \
          patch('jt.nodes.load_nodes', return_value=[
-             {'name': 'houseofjawn', 'ip': '100.122.208.15', 'port': 6248},
-             {'name': 'officejawn',  'ip': '100.84.214.24',  'port': 6248},
+             {'name': 'houseofjawn', 'ip': '100.64.0.11', 'port': 6248},
+             {'name': 'officejawn',  'ip': '100.64.0.12',  'port': 6248},
          ]), \
          patch('jt.nodes.fetch_remote_state', return_value=None):
         output = run_jt('nodes')
@@ -69,7 +69,7 @@ def test_nodes_renders_remote_state_when_reachable():
     }
     with patch('jt.state.read_state', return_value=fake_local), \
          patch('jt.nodes.load_nodes', return_value=[
-             {'name': 'officejawn', 'ip': '100.84.214.24', 'port': 6248},
+             {'name': 'officejawn', 'ip': '100.64.0.12', 'port': 6248},
          ]), \
          patch('jt.nodes.fetch_remote_state', return_value=fake_remote):
         output = run_jt('nodes')
