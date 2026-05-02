@@ -72,3 +72,33 @@ def test_fetch_remote_state_uses_default_port_for_null_port():
         result = nodes.fetch_remote_state({'name': 'test', 'ip': '1.2.3.4', 'port': None})
     assert result == fake_state
     assert f':{nodes.DEFAULT_PORT}/' in captured_urls[0]
+
+
+def test_fetch_remotes_runs_concurrently_and_preserves_order():
+    import threading
+    import time
+
+    barrier = threading.Barrier(3)
+
+    def fake_fetch(node, timeout=None):
+        # Block until all three fetchers reach this point. If the
+        # implementation is serial we'll deadlock — pytest will time out and
+        # fail clearly.
+        barrier.wait(timeout=2)
+        time.sleep(0.01)
+        return {'node': node['name'], 'sessions': {}}
+
+    inputs = [
+        {'name': 'a', 'ip': '1.1.1.1'},
+        {'name': 'b', 'ip': '2.2.2.2'},
+        {'name': 'c', 'ip': '3.3.3.3'},
+    ]
+    with patch.object(nodes, 'fetch_remote_state', side_effect=fake_fetch):
+        results = nodes.fetch_remotes(inputs)
+
+    assert [n['name'] for n, _ in results] == ['a', 'b', 'c']
+    assert [r['node'] for _, r in results] == ['a', 'b', 'c']
+
+
+def test_fetch_remotes_empty_returns_empty_list():
+    assert nodes.fetch_remotes([]) == []

@@ -35,3 +35,57 @@ def test_unknown_path_returns_404(http_server):
         assert False, 'should have raised'
     except urllib.error.HTTPError as e:
         assert e.code == 404
+
+
+def test_default_bind_is_localhost():
+    server = daemon._make_http_server(0)
+    try:
+        host = server.server_address[0]
+    finally:
+        server.server_close()
+    # Must default to a loopback bind so agent stdout doesn't leak to the
+    # network without explicit opt-in via JT_BIND.
+    assert host in ('127.0.0.1', '::1', 'localhost')
+
+
+def test_bind_argument_overrides_default():
+    server = daemon._make_http_server(0, host='127.0.0.1')
+    try:
+        assert server.server_address[0] == '127.0.0.1'
+    finally:
+        server.server_close()
+
+
+def test_status_endpoint_serves_concurrent_requests(http_server, monkeypatch):
+    # Park each request on a Barrier inside the handler. If the server were
+    # single-threaded, only one handler could ever be inside the wait at a
+    # time, the barrier would time out (BrokenBarrierError), and every
+    # response would come back 500. This therefore actually verifies the
+    # ThreadingHTTPServer behavior — the previous version of this test was
+    # trivially satisfied by a serial server because /status is instant.
+    import concurrent.futures
+    parties = 3
+    barrier = threading.Barrier(parties=parties, timeout=2)
+    original_do_GET = daemon._StatusHandler.do_GET
+
+    def synced_do_GET(self):
+        if self.path == '/status':
+            try:
+                barrier.wait()
+            except threading.BrokenBarrierError:
+                self.send_response(500)
+                self.send_header('Content-Length', '0')
+                self.end_headers()
+                return
+        return original_do_GET(self)
+
+    monkeypatch.setattr(daemon._StatusHandler, 'do_GET', synced_do_GET)
+
+    def hit():
+        url = f'http://127.0.0.1:{http_server}/status'
+        with urllib.request.urlopen(url, timeout=4) as resp:
+            return resp.status
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=parties) as pool:
+        statuses = list(pool.map(lambda _: hit(), range(parties)))
+    assert statuses == [200] * parties

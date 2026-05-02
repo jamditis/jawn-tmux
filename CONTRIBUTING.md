@@ -11,7 +11,7 @@ pip3 install --break-system-packages -e .
 python3 -m pytest -v
 ```
 
-All 45 tests should pass. No third-party deps required.
+All 56 tests should pass. No third-party deps required.
 
 ## Ground rules
 
