@@ -17,7 +17,7 @@ tmux session manager for AI agent workflows. Visual pane border attention, live 
 
 ## What is this?
 
-If you run several AI agents at once — Claude, an autonomous task runner, a long-running build — each one usually lives in its own [tmux](https://github.com/tmux/tmux/wiki) session (a persistent shell that survives logout). The problem: you can only look at one session at a time, so it's hard to tell which agents are working, which are idle, and which are done without flipping through them.
+If you run several AI agents at once — Claude Code, Codex CLI, an autonomous task runner, a long-running build — each one usually lives in its own [tmux](https://github.com/tmux/tmux/wiki) session (a persistent shell that survives logout). The problem: you can only look at one session at a time, so it's hard to tell which agents are working, which are idle, and which are done without flipping through them.
 
 jawn-tmux watches every session in the background and turns each session's tmux pane border into a status light: **green** while the agent is producing output, **amber** when it has been quiet for more than 20 seconds, **gray** when finished, **red** on error. It also gives you a sidebar pane with a live table of every session, and a `jt nodes` command that shows the same view across multiple machines on a [Tailscale](https://tailscale.com) network.
 
@@ -103,10 +103,10 @@ Added via `source-file ~/projects/jawn-tmux/tmux/jt.conf`:
 |--------|---------|-------------|
 | `active` | Output in last 20s | `#3fb950` green |
 | `silent` | No output for 20s+ | `#d29922` amber |
-| `done` | `CLAUDE_TASK_COMPLETE:0` in output | `#484f58` dim gray |
+| `done` | `CLAUDE_TASK_COMPLETE:0` in output (Claude/Codex wrappers) | `#484f58` dim gray |
 | `error` | Non-zero exit in marker | `#f85149` red |
 
-The `done`/`error` states read the `CLAUDE_TASK_COMPLETE:$EXIT_CODE` marker written by [claude-scheduler](https://github.com/jamditis/houseofjawn-bot). The `main` session's border is never modified.
+The `done`/`error` states read the `CLAUDE_TASK_COMPLETE:$EXIT_CODE` marker written by scheduler wrappers (for example [claude-scheduler](https://github.com/jamditis/houseofjawn-bot)) or your own Codex runner scripts. The `main` session's border is never modified.
 
 ## Multi-node setup
 

@@ -329,6 +329,14 @@
     }
 
     figure { margin: 1rem 0 1.75rem; }
+
+    .diagram {
+      width: 100%;
+      height: auto;
+      border: 1px solid var(--rule);
+      border-radius: 6px;
+      background: var(--bg-soft);
+    }
     figcaption {
       font-family: var(--sans);
       color: var(--fg-faint);
@@ -429,7 +437,7 @@
     <section id="description" aria-labelledby="h-description">
       <h2 id="h-description">Description</h2>
       <p>
-        If you run several AI agents at once — Claude, an autonomous task
+        If you run several AI agents at once — Claude Code, Codex CLI, an autonomous task
         runner, a long-build — each one usually lives in its own
         <a href="#glossary">tmux</a> session (a persistent shell that survives
         logout). The problem: you can only look at one session at a time, so
@@ -481,6 +489,11 @@
     <section id="states" aria-labelledby="h-states">
       <h2 id="h-states">States</h2>
       <p>Every two seconds, each session is classified into one of four states.</p>
+      <figure>
+        <img class="diagram" src="status-lifecycle.svg" alt="State lifecycle diagram for active, silent, done, and error transitions.">
+        <figcaption>Session lifecycle rules used by the classifier every 2 seconds.</figcaption>
+      </figure>
+
       <ul class="states">
         <li><span class="glyph active">●</span><span class="name">active</span><span class="why">output produced in the last 20 seconds</span></li>
         <li><span class="glyph silent">~</span><span class="name">silent</span><span class="why">no output for 20 seconds or more</span></li>
@@ -489,8 +502,8 @@
       </ul>
       <p>
         The <code>done</code>/<code>error</code> states are read from a marker line written
-        by <a href="https://github.com/jamditis/houseofjawn-bot">claude-scheduler</a>.
-        Sessions without a scheduler-managed log only ever go between <code>active</code>
+        by scheduler wrappers (for example <a href="https://github.com/jamditis/houseofjawn-bot">claude-scheduler</a>).
+        Codex users can emit the same marker format from their runner scripts, so sessions without a scheduler-managed log only move between <code>active</code>
         and <code>silent</code>.
       </p>
     </section>
@@ -508,7 +521,7 @@
         <dt>systemd user service</dt><dd>a unit run by Linux's service manager under your account, started on login and restarted on crash</dd>
         <dt>Tailscale</dt><dd>a private mesh VPN that gives every machine a stable IP in the <code>100.64.0.0/10</code> range; <code>jt&nbsp;nodes</code> uses it to talk to other machines without exposing them to the public internet</dd>
         <dt>$XDG_RUNTIME_DIR</dt><dd>a per-user, per-login temporary directory (e.g. <code>/run/user/1000</code>); the state file lives there because it is private to you and wiped on logout</dd>
-        <dt>marker</dt><dd>the literal line <code>CLAUDE_TASK_COMPLETE:0</code> (or <code>:1</code> for failure) appended to an agent's log when it finishes; this is what flips a session to <code>done</code> or <code>error</code></dd>
+        <dt>marker</dt><dd>the literal line <code>CLAUDE_TASK_COMPLETE:0</code> (or <code>:1</code> for failure) appended to an agent's log when it finishes; compatible with Claude Code and Codex wrappers that write the same marker, and this is what flips a session to <code>done</code> or <code>error</code></dd>
       </dl>
     </section>
 
@@ -569,6 +582,11 @@ jt status</pre>
 
     <section id="architecture" aria-labelledby="h-architecture">
       <h2 id="h-architecture">Architecture</h2>
+
+      <figure>
+        <img class="diagram" src="architecture-diagram.svg" alt="Architecture diagram showing jtd daemon writing state and serving HTTP while jt CLI reads local state and remote nodes.">
+        <figcaption>High-level runtime flow: one writer (<code>jtd</code>) and many readers (<code>jt</code> commands and remote node fetches).</figcaption>
+      </figure>
       <p>
         Two processes. <code>jtd</code> writes; everything else reads. State lives
         in <code>$XDG_RUNTIME_DIR/jt-state.json</code> (with a <code>/tmp</code>
@@ -604,11 +622,11 @@ jt status</pre>
   <span class="s">"sessions"</span>: {
     <span class="s">"morning-wake"</span>: {
       <span class="s">"status"</span>: <span class="s">"active"</span>,        <span class="c">// active | silent | done | error</span>
-      <span class="s">"command"</span>: <span class="s">"claude"</span>,
+      <span class="s">"command"</span>: <span class="s">"codex"</span>,
       <span class="s">"elapsed_secs"</span>: 720,
       <span class="s">"last_activity_secs"</span>: 8,
       <span class="s">"output_tail"</span>: [<span class="s">"Checking email..."</span>, <span class="s">"Found 1 transcript."</span>],
-      <span class="s">"output_file"</span>: <span class="s">"/tmp/claude_scheduled_1740000000.txt"</span>
+      <span class="s">"output_file"</span>: <span class="s">"/tmp/agent_run_1740000000.txt"</span>
     }
   }
 }</pre>

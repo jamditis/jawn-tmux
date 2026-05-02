@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 520" role="img" aria-labelledby="title desc">
+  <title id="title">jawn-tmux architecture flow</title>
+  <desc id="desc">Diagram showing jtd polling tmux and writing state while jt CLI and remote nodes read state and HTTP status.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#131713"/><stop offset="100%" stop-color="#0c100d"/>
+    </linearGradient>
+    <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#7ee787"/></marker>
+  </defs>
+  <rect width="1200" height="520" fill="url(#bg)"/>
+  <g font-family="ui-monospace, Menlo, Consolas, monospace" fill="#d6dccd">
+    <rect x="70" y="80" width="360" height="300" rx="12" fill="#131713" stroke="#2b332c"/>
+    <text x="95" y="125" font-size="24" fill="#7ee787">jtd daemon</text>
+    <text x="95" y="165" font-size="18">poll tmux every 2s</text>
+    <text x="95" y="195" font-size="18">classify active/silent/done/error</text>
+    <text x="95" y="225" font-size="18">write jt-state.json (0600)</text>
+    <text x="95" y="255" font-size="18">paint pane borders</text>
+    <text x="95" y="285" font-size="18">serve /status on :6248</text>
+
+    <rect x="770" y="80" width="360" height="300" rx="12" fill="#131713" stroke="#2b332c"/>
+    <text x="795" y="125" font-size="24" fill="#7ee787">jt CLI</text>
+    <text x="795" y="165" font-size="18">jt status / watch / popup</text>
+    <text x="795" y="195" font-size="18">spawn / kill / attach</text>
+    <text x="795" y="225" font-size="18">read local state file</text>
+    <text x="795" y="255" font-size="18">fan out to remote nodes</text>
+
+    <rect x="465" y="205" width="270" height="70" rx="10" fill="#131713" stroke="#2b332c"/>
+    <text x="490" y="248" font-size="20" fill="#f0b85e">jt-state.json</text>
+
+    <line x1="430" y1="235" x2="465" y2="235" stroke="#7ee787" stroke-width="3" marker-end="url(#arr)"/>
+    <line x1="735" y1="245" x2="770" y2="245" stroke="#7ee787" stroke-width="3" marker-end="url(#arr)"/>
+    <line x1="430" y1="320" x2="770" y2="320" stroke="#f0b85e" stroke-dasharray="8 8" stroke-width="2" marker-end="url(#arr)"/>
+    <text x="520" y="312" font-size="16" fill="#97a191">HTTP /status for jt nodes</text>
+  </g>
+</svg>
