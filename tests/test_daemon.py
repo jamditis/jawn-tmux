@@ -1,4 +1,5 @@
 # tests/test_daemon.py
+import os
 import time
 from pathlib import Path
 import pytest
@@ -72,3 +73,67 @@ def test_update_borders_skips_unchanged(monkeypatch):
     curr = {'morning-wake': {'status': 'silent', 'command': 'claude'}}
     daemon._update_borders(prev, curr)
     assert calls == []
+
+
+def _patch_glob_to_tmp(monkeypatch, tmp_path):
+    """Redirect daemon's glob.glob('/tmp/<prefix>_*.txt') calls into tmp_path."""
+    real_glob = daemon.glob.glob
+
+    def fake_glob(pattern):
+        if pattern.startswith('/tmp/'):
+            return real_glob(str(tmp_path / pattern[len('/tmp/'):]))
+        return real_glob(pattern)
+
+    monkeypatch.setattr(daemon.glob, 'glob', fake_glob)
+
+
+def test_find_output_file_matches_claude_scheduled_default(monkeypatch, tmp_path):
+    _patch_glob_to_tmp(monkeypatch, tmp_path)
+    created = 1740000000
+    log = tmp_path / f'claude_scheduled_{created}.txt'
+    log.write_text('hello\n')
+    assert daemon._find_output_file(created) == str(log)
+
+
+def test_find_output_file_matches_codex_scheduled_default(monkeypatch, tmp_path):
+    _patch_glob_to_tmp(monkeypatch, tmp_path)
+    created = 1740000000
+    log = tmp_path / f'codex_scheduled_{created}.txt'
+    log.write_text('hello\n')
+    assert daemon._find_output_file(created) == str(log)
+
+
+def test_find_output_file_rejects_outside_60s_window(monkeypatch, tmp_path):
+    _patch_glob_to_tmp(monkeypatch, tmp_path)
+    log = tmp_path / 'claude_scheduled_1740000000.txt'
+    log.write_text('hello\n')
+    assert daemon._find_output_file(1740000061) is None
+    assert daemon._find_output_file(1740000059) == str(log)
+
+
+def test_find_output_file_picks_most_recent_when_multiple_prefixes_match(monkeypatch, tmp_path):
+    _patch_glob_to_tmp(monkeypatch, tmp_path)
+    created = 1740000000
+    older = tmp_path / f'claude_scheduled_{created}.txt'
+    newer = tmp_path / f'codex_scheduled_{created}.txt'
+    older.write_text('older\n')
+    newer.write_text('newer\n')
+    os_utime_older = (older.stat().st_atime, older.stat().st_mtime - 100)
+    os.utime(older, os_utime_older)
+    assert daemon._find_output_file(created) == str(newer)
+
+
+def test_find_output_file_respects_env_override(monkeypatch, tmp_path):
+    _patch_glob_to_tmp(monkeypatch, tmp_path)
+    monkeypatch.setenv('JT_OUTPUT_FILE_PREFIXES', 'my_runner')
+    created = 1740000000
+    claude_log = tmp_path / f'claude_scheduled_{created}.txt'
+    claude_log.write_text('default prefix\n')
+    custom_log = tmp_path / f'my_runner_{created}.txt'
+    custom_log.write_text('custom prefix\n')
+    assert daemon._find_output_file(created) == str(custom_log)
+
+
+def test_resolve_output_file_prefixes_ignores_blank_entries(monkeypatch):
+    monkeypatch.setenv('JT_OUTPUT_FILE_PREFIXES', '  , ,  ')
+    assert daemon._resolve_output_file_prefixes() == daemon.DEFAULT_OUTPUT_FILE_PREFIXES

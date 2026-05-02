@@ -15,6 +15,7 @@ SILENCE_THRESHOLD = 20   # seconds, matches monitor-silence 20 in .tmux.conf
 POLL_INTERVAL = 2
 DEFAULT_HTTP_PORT = 6248
 DEFAULT_HTTP_BIND = '127.0.0.1'
+DEFAULT_OUTPUT_FILE_PREFIXES = ('claude_scheduled', 'codex_scheduled')
 
 STATUS_COLORS = {
     'active': '#3fb950',
@@ -47,16 +48,34 @@ def _resolve_bind(default: str = DEFAULT_HTTP_BIND) -> str:
     return os.environ.get('JT_BIND') or default
 
 
+def _resolve_output_file_prefixes() -> tuple[str, ...]:
+    """Comma-separated env override; falls back to the default tuple.
+
+    Defaults cover the two scheduler wrappers we ship awareness of
+    (claude-scheduler, codex-scheduler). Set JT_OUTPUT_FILE_PREFIXES to
+    extend or replace, e.g. "claude_scheduled,codex_scheduled,my_runner".
+    """
+    raw = os.environ.get('JT_OUTPUT_FILE_PREFIXES')
+    if not raw:
+        return DEFAULT_OUTPUT_FILE_PREFIXES
+    prefixes = tuple(p.strip() for p in raw.split(',') if p.strip())
+    return prefixes or DEFAULT_OUTPUT_FILE_PREFIXES
+
+
 def _find_output_file(session_created: int) -> str | None:
-    files = sorted(glob.glob('/tmp/claude_scheduled_*.txt'), key=os.path.getmtime)
-    for f in reversed(files):
-        try:
-            ts = int(Path(f).stem.replace('claude_scheduled_', ''))
-        except ValueError:
-            continue
-        if abs(ts - session_created) < 60:
-            return f
-    return None
+    candidates: list[tuple[float, str]] = []
+    for prefix in _resolve_output_file_prefixes():
+        for f in glob.glob(f'/tmp/{prefix}_*.txt'):
+            try:
+                ts = int(Path(f).stem.removeprefix(f'{prefix}_'))
+            except ValueError:
+                continue
+            if abs(ts - session_created) < 60:
+                candidates.append((os.path.getmtime(f), f))
+    if not candidates:
+        return None
+    candidates.sort()
+    return candidates[-1][1]
 
 
 def _read_output_tail(output_file: str, n: int = 3) -> list[str]:
