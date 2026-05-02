@@ -552,15 +552,15 @@ jt status</pre>
   <span class="a-faint">└──────────────┬───────────────┘</span>         <span class="a-faint">└──────────────┬───────────────┘</span>
                  <span class="a-faint">│</span>          <span class="a-mut">HTTP</span>           <span class="a-faint">│</span>
                  <span class="a-faint">└─────────────────────────────────┘</span>
-                       <span class="a-mut">Tailscale-only by default</span></pre>
+                    <span class="a-mut">bound to 127.0.0.1 by default</span></pre>
 
       <p>
         <code>jtd</code> binds <code>:6248</code> to <code>127.0.0.1</code> by
-        default. To enable cross-node aggregation, set
-        <code>JT_BIND</code> to your Tailscale IP (or <code>0.0.0.0</code> if the
-        host is firewalled to a private interface). The state JSON contains
-        session names and the last few output lines — treat the bind interface
-        like any other agent log feed.
+        default — the state JSON contains session names and the last few output
+        lines, so the listener stays local until you opt in. To enable
+        cross-node aggregation, set <code>JT_BIND</code> to your Tailscale IP
+        (or <code>0.0.0.0</code> if the host is firewalled to a private
+        interface) and restart the daemon.
       </p>
 
       <h3 id="h-state">State file</h3>
@@ -587,9 +587,22 @@ jt status</pre>
   { <span class="s">"name"</span>: <span class="s">"officejawn"</span>,  <span class="s">"ip"</span>: <span class="s">"100.84.214.24"</span>,  <span class="s">"port"</span>: 6248 }
 ]</pre>
       <p>
-        On each node, set <code>JT_BIND=&lt;tailscale-ip&gt;</code> in the systemd
-        unit drop-in. Unreachable nodes do not block the others — they appear in
-        the rendered output as such.
+        On each node, drop in a unit override and restart the daemon so it
+        re-binds:
+      </p>
+<pre data-prompt="$ on each node"><span class="c"># open an editor for ~/.config/systemd/user/jtd.service.d/override.conf</span>
+systemctl --user edit jtd
+
+<span class="c"># in the editor:</span>
+[Service]
+Environment=JT_BIND=&lt;tailscale-ip&gt;
+
+<span class="c"># then reload + restart so the new JT_BIND takes effect</span>
+systemctl --user daemon-reload
+systemctl --user restart jtd</pre>
+      <p>
+        Unreachable nodes do not block the others — they appear in the rendered
+        output as such.
       </p>
     </section>
 

@@ -56,17 +56,36 @@ def test_bind_argument_overrides_default():
         server.server_close()
 
 
-def test_status_endpoint_serves_concurrent_requests(http_server):
-    # ThreadingHTTPServer: two slow-ish requests should overlap rather than
-    # serialize. We just sanity check that two simultaneous requests both
-    # succeed.
+def test_status_endpoint_serves_concurrent_requests(http_server, monkeypatch):
+    # Park each request on a Barrier inside the handler. If the server were
+    # single-threaded, only one handler could ever be inside the wait at a
+    # time, the barrier would time out (BrokenBarrierError), and every
+    # response would come back 500. This therefore actually verifies the
+    # ThreadingHTTPServer behavior — the previous version of this test was
+    # trivially satisfied by a serial server because /status is instant.
     import concurrent.futures
+    parties = 3
+    barrier = threading.Barrier(parties=parties, timeout=2)
+    original_do_GET = daemon._StatusHandler.do_GET
+
+    def synced_do_GET(self):
+        if self.path == '/status':
+            try:
+                barrier.wait()
+            except threading.BrokenBarrierError:
+                self.send_response(500)
+                self.send_header('Content-Length', '0')
+                self.end_headers()
+                return
+        return original_do_GET(self)
+
+    monkeypatch.setattr(daemon._StatusHandler, 'do_GET', synced_do_GET)
 
     def hit():
         url = f'http://127.0.0.1:{http_server}/status'
-        with urllib.request.urlopen(url, timeout=2) as resp:
+        with urllib.request.urlopen(url, timeout=4) as resp:
             return resp.status
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
-        results = list(pool.map(lambda _: hit(), range(4)))
-    assert results == [200, 200, 200, 200]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=parties) as pool:
+        statuses = list(pool.map(lambda _: hit(), range(parties)))
+    assert statuses == [200] * parties

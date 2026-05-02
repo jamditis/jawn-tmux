@@ -118,6 +118,13 @@ systemctl --user edit jtd
 Environment=JT_BIND=100.122.208.15
 ```
 
+Editing the unit doesn't restart it — apply the change explicitly:
+
+```bash
+systemctl --user daemon-reload
+systemctl --user restart jtd
+```
+
 Then list your machines in `~/.config/jt/nodes.json`:
 
 ```json

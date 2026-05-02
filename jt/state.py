@@ -1,6 +1,7 @@
 # jt/state.py
 import json
 import os
+import tempfile
 import time
 from pathlib import Path
 
@@ -40,18 +41,25 @@ def write_state(node: str, sessions: dict) -> None:
         'sessions': sessions,
     }
     STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    tmp = STATE_FILE.with_suffix('.tmp')
-    # Write with restrictive mode before rename so the file is never
-    # world-readable, even briefly. output_tail can contain agent stdout
-    # which may include paths or secrets.
-    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+
+    # Use mkstemp to get a unique name with O_EXCL semantics: this defeats
+    # the symlink-attack vector that exists when the state file lives in a
+    # shared directory (the /tmp fallback, or any user-supplied
+    # JT_STATE_FILE location).  mkstemp opens with mode 0600 by default.
+    fd, tmp_path = tempfile.mkstemp(
+        prefix='.jt-state-', suffix='.tmp',
+        dir=str(STATE_FILE.parent),
+    )
     try:
         with os.fdopen(fd, 'w') as f:
             json.dump(data, f, indent=2)
+        # Belt-and-braces: enforce mode in case the platform's mkstemp
+        # default isn't 0600 (it is on CPython, but be explicit).
+        os.chmod(tmp_path, 0o600)
+        os.replace(tmp_path, STATE_FILE)
     except BaseException:
         try:
-            os.unlink(tmp)
+            os.unlink(tmp_path)
         except OSError:
             pass
         raise
-    os.replace(tmp, STATE_FILE)

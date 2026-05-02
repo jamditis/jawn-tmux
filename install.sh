@@ -57,11 +57,20 @@ import sys
 sys.exit(0 if sys.version_info >= (3, 11) else 1)
 PY
 
-# Install Python package. Prefer --user; fall back to --break-system-packages
-# only if pip refuses (PEP 668 lockdown on some distros).
-if ! pip3 install --user -e "$REPO_DIR" 2>/dev/null; then
-    warn "pip rejected --user install; retrying with --break-system-packages"
-    pip3 install --break-system-packages -e "$REPO_DIR"
+# Install Python package. Prefer --user; only fall back to
+# --break-system-packages if PEP 668 is the actual reason pip refused. Keep
+# --user on the fallback path so scripts land in ~/.local/bin (where the
+# systemd unit looks for jtd) rather than the global /usr/local/bin.
+PIP_LOG="$(mktemp)"
+trap 'rm -f "$PIP_LOG"' EXIT
+if pip3 install --user -e "$REPO_DIR" 2>"$PIP_LOG"; then
+    cat "$PIP_LOG" >&2
+elif grep -q 'externally-managed-environment' "$PIP_LOG"; then
+    warn "PEP 668 lockdown detected; retrying with --user --break-system-packages"
+    pip3 install --user --break-system-packages -e "$REPO_DIR"
+else
+    cat "$PIP_LOG" >&2
+    err "pip install failed (see error above)"
 fi
 
 # Add tmux keybindings if not already present.
@@ -96,10 +105,14 @@ echo "  Ctrl+B a                  — popup"
 echo "  Ctrl+B Shift+A            — sidebar toggle"
 echo
 echo "Cross-node aggregation is off by default (jtd binds to 127.0.0.1)."
-echo "To enable it, drop in an override:"
+echo "To enable it, drop in an override and restart the daemon:"
 echo "  systemctl --user edit jtd"
+echo "  # add:"
 echo "  [Service]"
 echo "  Environment=JT_BIND=<your-tailscale-ip>"
+echo "  # then:"
+echo "  systemctl --user daemon-reload"
+echo "  systemctl --user restart jtd"
 echo
 if ! command -v jt >/dev/null 2>&1; then
     echo "Note: 'jt' not on PATH. Add ~/.local/bin to PATH:"

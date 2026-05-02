@@ -1,6 +1,7 @@
 # jt/cli.py
 import argparse
 import os
+import select
 import subprocess
 import sys
 import termios
@@ -13,18 +14,24 @@ from jt import state
 from jt import tmux
 
 _CLEAR = '\033[2J\033[H'   # clear + home, faster than running clear(1)
+_POPUP_TICK = 2.0          # seconds; matches the daemon's poll interval
 
 
-def _getch() -> str:
-    """Read a single key press in cbreak mode.
+def _wait_key(timeout: float | None = None) -> str | None:
+    """Wait up to ``timeout`` seconds for a single keypress.
 
-    Restores the original terminal attributes even if the read is interrupted
-    so the user is never left with an unusable terminal.
+    Returns the character on input, ``None`` if the timeout elapsed without
+    a keypress (the caller can use this to refresh on a tick), or ``''`` if
+    the read was interrupted. Restores the terminal attributes even on
+    interrupt so the user is never left in an unusable cbreak mode.
     """
     fd = sys.stdin.fileno()
     old = termios.tcgetattr(fd)
     try:
         tty.setcbreak(fd)
+        ready, _, _ = select.select([sys.stdin], [], [], timeout)
+        if not ready:
+            return None
         return sys.stdin.read(1)
     except (OSError, KeyboardInterrupt):
         return ''
@@ -56,7 +63,11 @@ def cmd_popup(args):
             print(render.render_table(r))
         print('\n  [q] close   [k] kill session')
         sys.stdout.flush()
-        ch = _getch()
+        ch = _wait_key(_POPUP_TICK)
+        if ch is None:
+            # Timeout: re-render with fresh state so the popup doesn't go
+            # stale while the user idles.
+            continue
         if ch in ('q', '\x03', ''):  # q, Ctrl-C, or read failure
             break
         if ch == 'k':

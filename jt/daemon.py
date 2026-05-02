@@ -13,8 +13,8 @@ from jt import tmux, state
 
 SILENCE_THRESHOLD = 20   # seconds, matches monitor-silence 20 in .tmux.conf
 POLL_INTERVAL = 2
-HTTP_PORT = int(os.environ.get('JT_PORT') or 6248)
-HTTP_BIND = os.environ.get('JT_BIND') or '127.0.0.1'
+DEFAULT_HTTP_PORT = 6248
+DEFAULT_HTTP_BIND = '127.0.0.1'
 
 STATUS_COLORS = {
     'active': '#3fb950',
@@ -24,6 +24,27 @@ STATUS_COLORS = {
 }
 
 log = logging.getLogger('jtd')
+
+
+def _resolve_port(default: int = DEFAULT_HTTP_PORT) -> int:
+    """Read JT_PORT lazily so a typo doesn't crash module import.
+
+    A bad value logs a warning and falls back to the default; the daemon
+    still starts on a known port instead of dying with an import-time
+    traceback that systemd will keep restarting.
+    """
+    raw = os.environ.get('JT_PORT')
+    if not raw:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        log.warning('JT_PORT=%r is not an integer; falling back to %d', raw, default)
+        return default
+
+
+def _resolve_bind(default: str = DEFAULT_HTTP_BIND) -> str:
+    return os.environ.get('JT_BIND') or default
 
 
 def _find_output_file(session_created: int) -> str | None:
@@ -146,7 +167,7 @@ class _StatusHandler(BaseHTTPRequestHandler):
         log.debug('http %s - %s', self.address_string(), format % args)
 
 
-def _make_http_server(port: int = HTTP_PORT, host: str | None = None) -> ThreadingHTTPServer:
+def _make_http_server(port: int | None = None, host: str | None = None) -> ThreadingHTTPServer:
     """Bind the HTTP server.
 
     Defaults to ``127.0.0.1`` so the state JSON — which contains agent stdout
@@ -154,8 +175,9 @@ def _make_http_server(port: int = HTTP_PORT, host: str | None = None) -> Threadi
     variable to a Tailscale IP (or ``0.0.0.0``, knowing the risk) to enable
     cross-node aggregation.
     """
-    bind = host if host is not None else HTTP_BIND
-    return ThreadingHTTPServer((bind, port), _StatusHandler)
+    bind = host if host is not None else _resolve_bind()
+    p = port if port is not None else _resolve_port()
+    return ThreadingHTTPServer((bind, p), _StatusHandler)
 
 
 def run():
@@ -164,12 +186,14 @@ def run():
         format='%(asctime)s %(levelname)s %(name)s: %(message)s',
     )
     node = socket.gethostname()
+    bind = _resolve_bind()
+    port = _resolve_port()
     try:
-        server = _make_http_server()
+        server = _make_http_server(port=port, host=bind)
     except OSError as e:
-        log.error('failed to bind %s:%s — %s', HTTP_BIND, HTTP_PORT, e)
+        log.error('failed to bind %s:%s — %s', bind, port, e)
         raise
-    log.info('jtd serving %s:%s as %s', HTTP_BIND, HTTP_PORT, node)
+    log.info('jtd serving %s:%s as %s', bind, port, node)
     threading.Thread(target=server.serve_forever, daemon=True).start()
 
     prev_sessions: dict = {}
