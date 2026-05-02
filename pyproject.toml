@@ -4,15 +4,37 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "jawn-tmux"
-description = "tmux session manager for the jawn network"
+description = "tmux session manager for AI agent workflows"
 version = "0.1.0"
+readme = "README.md"
 requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [{name = "jamditis"}]
+keywords = ["tmux", "ai-agents", "claude", "cli", "linux"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: System :: Systems Administration",
+    "Topic :: Terminals",
+]
+
+[project.urls]
+Homepage = "https://jamditis.github.io/jawn-tmux"
+Source   = "https://github.com/jamditis/jawn-tmux"
+Issues   = "https://github.com/jamditis/jawn-tmux/issues"
 
 [project.optional-dependencies]
 test = ["pytest"]
 
 [project.scripts]
-jt = "jt.cli:main"
+jt  = "jt.cli:main"
 jtd = "jt.daemon:run"
 
 [tool.pytest.ini_options]

@@ -1,13 +1,30 @@
 [Unit]
 Description=jawn-tmux daemon
+Documentation=https://github.com/jamditis/jawn-tmux
 After=network.target
 
 [Service]
 Type=simple
-ExecStart=/home/jamditis/.local/bin/jtd
+ExecStart=%h/.local/bin/jtd
 Restart=always
 RestartSec=5
-Environment=HOME=/home/jamditis
+
+# Defaults are safe for a single-machine setup. To enable cross-node
+# aggregation, drop a unit override (`systemctl --user edit jtd`) that sets
+# JT_BIND to the host's Tailscale IP, e.g.:
+#   [Service]
+#   Environment=JT_BIND=100.x.y.z
+Environment=JT_BIND=127.0.0.1
+
+# Conservative hardening. Anything that would block writes to
+# $XDG_RUNTIME_DIR (where the state file lives) or read access to
+# /tmp/claude_scheduled_*.txt has been left off intentionally.
+NoNewPrivileges=true
+LockPersonality=true
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 
 [Install]
 WantedBy=default.target

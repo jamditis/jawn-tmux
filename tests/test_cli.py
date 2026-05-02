@@ -56,7 +56,25 @@ def test_nodes_shows_local_and_skips_unreachable():
          ]), \
          patch('jt.nodes.fetch_remote_state', return_value=None):
         output = run_jt('nodes')
-    assert 'officejawn' in output or 'unreachable' in output
+    assert 'officejawn' in output and 'unreachable' in output
+
+
+def test_nodes_renders_remote_state_when_reachable():
+    fake_local = {'node': 'houseofjawn', 'updated_at': 0, 'sessions': {}}
+    fake_remote = {
+        'node': 'officejawn', 'updated_at': 0,
+        'sessions': {'morning': {'name': 'morning', 'status': 'active',
+                                  'command': 'claude', 'elapsed_secs': 30,
+                                  'last_activity_secs': 1, 'output_tail': []}},
+    }
+    with patch('jt.state.read_state', return_value=fake_local), \
+         patch('jt.nodes.load_nodes', return_value=[
+             {'name': 'officejawn', 'ip': '100.84.214.24', 'port': 6248},
+         ]), \
+         patch('jt.nodes.fetch_remote_state', return_value=fake_remote):
+        output = run_jt('nodes')
+    assert 'officejawn' in output
+    assert 'morning' in output
 
 
 def test_attach_calls_tmux():

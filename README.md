@@ -4,7 +4,7 @@
 [![python](https://img.shields.io/badge/python-3.11%2B-3fb950?style=flat-square&labelColor=0d120d)](https://python.org)
 [![license](https://img.shields.io/badge/license-MIT-484f58?style=flat-square&labelColor=0d120d)](LICENSE)
 [![platform](https://img.shields.io/badge/platform-linux%20arm64%20%7C%20x86%20%7C%20wsl2-484f58?style=flat-square&labelColor=0d120d)](#install)
-[![tests](https://img.shields.io/badge/tests-45%20passing-3fb950?style=flat-square&labelColor=0d120d)](tests/)
+[![tests](https://img.shields.io/badge/tests-56%20passing-3fb950?style=flat-square&labelColor=0d120d)](tests/)
 [![stdlib only](https://img.shields.io/badge/deps-stdlib%20only-3fb950?style=flat-square&labelColor=0d120d)](#)
 
 tmux session manager for AI agent workflows. Visual pane border attention, live sidebar, cross-node status.
@@ -28,21 +28,23 @@ When you run multiple AI agents in parallel tmux sessions, it's hard to tell wha
 
 Two processes:
 
-**`jtd` (daemon)** polls tmux every 2 seconds, writes `/tmp/jt-state.json`, updates pane border colors, and serves the state JSON on port 6248 for cross-node polling.
+**`jtd` (daemon)** polls tmux every 2 seconds, writes the state file, updates pane border colors, and serves the state JSON on port 6248 for cross-node polling.
 
-**`jt` (CLI)** reads the state file directly for instant local status and hits remote nodes' HTTP endpoints for `jt nodes`.
+**`jt` (CLI)** reads the state file directly for instant local status and hits remote nodes' HTTP endpoints concurrently for `jt nodes`.
 
 ```
 jtd (systemd user service)
   ├── polls tmux list-sessions every 2s
-  ├── writes /tmp/jt-state.json (atomic rename)
+  ├── writes $XDG_RUNTIME_DIR/jt-state.json (atomic, mode 0600)
   ├── updates tmux pane borders via select-pane -P
-  └── serves :6248/status (JSON, Tailscale-accessible)
+  └── serves :6248/status (bound to 127.0.0.1 by default)
 
 jt (CLI)
-  ├── reads /tmp/jt-state.json directly
-  └── fetches <node-ip>:6248/status for remote nodes
+  ├── reads the state file directly
+  └── fetches <node-ip>:6248/status concurrently for remote nodes
 ```
+
+The state file lives under `$XDG_RUNTIME_DIR` (typically `/run/user/$UID`) so it is private to the invoking user. If `XDG_RUNTIME_DIR` is not set the daemon falls back to `/tmp/jt-state.json`. Set `JT_STATE_FILE` to override.
 
 ## Install
 
@@ -101,7 +103,22 @@ The `done`/`error` states read the `CLAUDE_TASK_COMPLETE:$EXIT_CODE` marker writ
 
 ## Multi-node setup
 
-Edit `~/.config/jt/nodes.json` with each node's Tailscale IP:
+By default, `jtd` only binds the HTTP listener to `127.0.0.1`. The state JSON
+contains agent stdout tails, so the listener stays local until you opt in.
+
+To enable cross-node aggregation, point `JT_BIND` at the host's Tailscale IP
+(or another private interface) via a systemd drop-in:
+
+```bash
+systemctl --user edit jtd
+```
+
+```ini
+[Service]
+Environment=JT_BIND=100.122.208.15
+```
+
+Then list your machines in `~/.config/jt/nodes.json`:
 
 ```json
 [
@@ -110,7 +127,17 @@ Edit `~/.config/jt/nodes.json` with each node's Tailscale IP:
 ]
 ```
 
-`jt nodes` fetches each node's `/status` endpoint concurrently and renders a combined view. Unreachable nodes are shown as such without blocking.
+`jt nodes` fetches each node's `/status` endpoint concurrently and renders a
+combined view. Unreachable nodes are shown as such without blocking.
+
+### Environment variables
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `JT_BIND` | `127.0.0.1` | HTTP bind interface for `jtd`. Set to a Tailscale IP to enable `jt nodes`. |
+| `JT_PORT` | `6248` | HTTP port. |
+| `JT_STATE_FILE` | `$XDG_RUNTIME_DIR/jt-state.json`, then `/tmp/jt-state.json` | Override the state file path. |
+| `JT_LOG_LEVEL` | `INFO` | Log level for the daemon (`DEBUG`, `INFO`, `WARNING`, `ERROR`). |
 
 ## Development
 
@@ -121,7 +148,7 @@ pip3 install --break-system-packages -e .
 python3 -m pytest -v
 ```
 
-45 tests, stdlib only, no third-party runtime deps.
+56 tests, stdlib only, no third-party runtime deps.
 
 ## File layout
 
@@ -134,7 +161,7 @@ jawn-tmux/
 │   ├── render.py     # table, watch loop, popup layout
 │   ├── tmux.py       # subprocess wrappers
 │   └── nodes.py      # cross-node HTTP client
-├── tests/            # 45 pytest tests
+├── tests/            # 56 pytest tests
 ├── config/
 │   └── nodes.json    # default node definitions
 ├── systemd/
