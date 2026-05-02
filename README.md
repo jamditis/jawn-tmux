@@ -4,7 +4,7 @@
 [![python](https://img.shields.io/badge/python-3.11%2B-3fb950?style=flat-square&labelColor=0d120d)](https://python.org)
 [![license](https://img.shields.io/badge/license-MIT-484f58?style=flat-square&labelColor=0d120d)](LICENSE)
 [![platform](https://img.shields.io/badge/platform-linux%20arm64%20%7C%20x86%20%7C%20wsl2-484f58?style=flat-square&labelColor=0d120d)](#install)
-[![tests](https://img.shields.io/badge/tests-87%20passing-3fb950?style=flat-square&labelColor=0d120d)](tests/)
+[![tests](https://img.shields.io/badge/tests-93%20passing-3fb950?style=flat-square&labelColor=0d120d)](tests/)
 [![stdlib only](https://img.shields.io/badge/deps-stdlib%20only-3fb950?style=flat-square&labelColor=0d120d)](#)
 
 tmux session manager for AI agent workflows. Visual pane border attention, live sidebar, cross-node status.
@@ -188,7 +188,7 @@ pip3 install --break-system-packages -e .
 python3 -m pytest -v
 ```
 
-87 tests, stdlib only, no third-party runtime deps.
+93 tests, stdlib only, no third-party runtime deps.
 
 ## File layout
 

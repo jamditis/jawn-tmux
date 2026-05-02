@@ -131,6 +131,48 @@ def test_bind_warn_non_loopback(monkeypatch):
     assert '100.64.0.11' in msg
 
 
+def test_daemon_http_brackets_ipv6_addresses(monkeypatch):
+    """Probe URL must wrap IPv6 literals in brackets per RFC 3986;
+    otherwise urllib mis-parses ::1:6248 as host '::1' port '6248' joined.
+    """
+    monkeypatch.setenv('JT_BIND', '::1')
+    captured = {}
+
+    class FakeResp:
+        status = 200
+        def read(self): return b'{}'
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+
+    def fake_urlopen(url, timeout):
+        captured['url'] = url
+        return FakeResp()
+
+    monkeypatch.setattr(doctor.urllib.request, 'urlopen', fake_urlopen)
+    level, _ = doctor._check_daemon_http()
+    assert level == 'ok'
+    assert captured['url'] == 'http://[::1]:6248/status'
+
+
+def test_daemon_http_does_not_bracket_ipv4(monkeypatch):
+    monkeypatch.setenv('JT_BIND', '127.0.0.1')
+
+    class FakeResp:
+        status = 200
+        def read(self): return b'{}'
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+
+    captured = {}
+    def fake_urlopen(url, timeout):
+        captured['url'] = url
+        return FakeResp()
+
+    monkeypatch.setattr(doctor.urllib.request, 'urlopen', fake_urlopen)
+    doctor._check_daemon_http()
+    assert captured['url'] == 'http://127.0.0.1:6248/status'
+
+
 def test_last_error_ok_when_absent(state_file):
     _write_state(state_file)
     level, _ = doctor._check_last_error()

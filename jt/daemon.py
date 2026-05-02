@@ -13,6 +13,7 @@ from jt import tmux, state
 
 SILENCE_THRESHOLD = 20   # seconds, matches monitor-silence 20 in .tmux.conf
 POLL_INTERVAL = 2
+LAST_ERROR_VISIBILITY_SECS = 300  # 5 min: how long a recovered error stays in state.json
 DEFAULT_HTTP_PORT = 6248
 DEFAULT_HTTP_BIND = '127.0.0.1'
 DEFAULT_OUTPUT_FILE_PREFIXES = ('claude_scheduled', 'codex_scheduled')
@@ -154,6 +155,18 @@ def build_session_state(raw_sessions: list[dict], now: float) -> dict:
     return result
 
 
+def _should_clear_last_error(last_error: dict | None, now: float) -> bool:
+    """True when a recovered error has stayed visible long enough to clear.
+
+    Errors stay in state.json for ``LAST_ERROR_VISIBILITY_SECS`` after they
+    happen so users running `jt status` or `jt doctor` see them at least
+    once. After that, a single transient hiccup shouldn't look permanent.
+    """
+    if not last_error:
+        return False
+    return (now - last_error.get('at', 0)) > LAST_ERROR_VISIBILITY_SECS
+
+
 def _update_borders(prev: dict, curr: dict) -> None:
     for name, info in curr.items():
         if name == 'main':
@@ -224,6 +237,14 @@ def run():
             now = time.time()
             curr = build_session_state(raw, now)
             last_sessions = curr
+            # Recovered errors stay in state.json for the visibility window so
+            # `jt status` / `jt doctor` can warn the user; after that they're
+            # cleared so a single transient hiccup doesn't look permanent.
+            # journalctl preserves the full history regardless.
+            if _should_clear_last_error(last_error, now):
+                log.info('clearing last_error from state (recovered %ds ago)',
+                         int(now - last_error['at']))
+                last_error = None
             state.write_state(node, curr, last_error)
             _update_borders(prev_sessions, curr)
             prev_sessions = curr
