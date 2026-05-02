@@ -501,10 +501,12 @@
         <li><span class="glyph error">✗</span><span class="name">error</span><span class="why">a non-zero exit code was written to the marker</span></li>
       </ul>
       <p>
-        The <code>done</code>/<code>error</code> states are read from a marker line written
-        by scheduler wrappers (for example <a href="https://github.com/jamditis/houseofjawn-bot">claude-scheduler</a>).
-        Codex users can emit the same marker format from their runner scripts, so sessions without a scheduler-managed log only move between <code>active</code>
-        and <code>silent</code>.
+        The <code>done</code>/<code>error</code> states are read from a marker line in
+        <code>/tmp/claude_scheduled_&lt;unix_ts&gt;.txt</code>, where the timestamp matches the
+        tmux session's creation time within 60 seconds. Scheduler wrappers like
+        <a href="https://github.com/jamditis/houseofjawn-bot">claude-scheduler</a> write to this path;
+        a Codex or custom runner can opt in by writing its log to the same filename pattern.
+        Sessions without a matching log only move between <code>active</code> and <code>silent</code>.
       </p>
     </section>
 
@@ -521,7 +523,7 @@
         <dt>systemd user service</dt><dd>a unit run by Linux's service manager under your account, started on login and restarted on crash</dd>
         <dt>Tailscale</dt><dd>a private mesh VPN that gives every machine a stable IP in the <code>100.64.0.0/10</code> range; <code>jt&nbsp;nodes</code> uses it to talk to other machines without exposing them to the public internet</dd>
         <dt>$XDG_RUNTIME_DIR</dt><dd>a per-user, per-login temporary directory (e.g. <code>/run/user/1000</code>); the state file lives there because it is private to you and wiped on logout</dd>
-        <dt>marker</dt><dd>the literal line <code>CLAUDE_TASK_COMPLETE:0</code> (or <code>:1</code> for failure) appended to an agent's log when it finishes; compatible with Claude Code and Codex wrappers that write the same marker, and this is what flips a session to <code>done</code> or <code>error</code></dd>
+        <dt>marker</dt><dd>the literal line <code>CLAUDE_TASK_COMPLETE:0</code> (or <code>:1</code> for failure) appended to an agent's log when it finishes; the daemon only reads it from <code>/tmp/claude_scheduled_&lt;unix_ts&gt;.txt</code> with a timestamp matching the session's creation time within 60 seconds, so a Claude Code or Codex wrapper opts in by writing to that path; this is what flips a session to <code>done</code> or <code>error</code></dd>
       </dl>
     </section>
 
@@ -626,7 +628,7 @@ jt status</pre>
       <span class="s">"elapsed_secs"</span>: 720,
       <span class="s">"last_activity_secs"</span>: 8,
       <span class="s">"output_tail"</span>: [<span class="s">"Checking email..."</span>, <span class="s">"Found 1 transcript."</span>],
-      <span class="s">"output_file"</span>: <span class="s">"/tmp/agent_run_1740000000.txt"</span>
+      <span class="s">"output_file"</span>: <span class="s">"/tmp/claude_scheduled_1740000000.txt"</span>
     }
   }
 }</pre>

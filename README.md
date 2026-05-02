@@ -103,10 +103,10 @@ Added via `source-file ~/projects/jawn-tmux/tmux/jt.conf`:
 |--------|---------|-------------|
 | `active` | Output in last 20s | `#3fb950` green |
 | `silent` | No output for 20s+ | `#d29922` amber |
-| `done` | `CLAUDE_TASK_COMPLETE:0` in output (Claude/Codex wrappers) | `#484f58` dim gray |
+| `done` | `CLAUDE_TASK_COMPLETE:0` in scheduler log | `#484f58` dim gray |
 | `error` | Non-zero exit in marker | `#f85149` red |
 
-The `done`/`error` states read the `CLAUDE_TASK_COMPLETE:$EXIT_CODE` marker written by scheduler wrappers (for example [claude-scheduler](https://github.com/jamditis/houseofjawn-bot)) or your own Codex runner scripts. The `main` session's border is never modified.
+The `done`/`error` states read the `CLAUDE_TASK_COMPLETE:$EXIT_CODE` marker from `/tmp/claude_scheduled_<unix_ts>.txt`, where `<unix_ts>` matches the tmux session's creation time within 60 seconds. Scheduler wrappers like [claude-scheduler](https://github.com/jamditis/houseofjawn-bot) write to this path; a Codex or custom runner can opt in by writing its log to the same `/tmp/claude_scheduled_<unix_ts>.txt` filename pattern. Sessions without a matching log file only move between `active` and `silent`. The `main` session's border is never modified.
 
 ## Multi-node setup
 
