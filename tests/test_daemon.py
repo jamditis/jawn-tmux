@@ -201,7 +201,7 @@ def test_should_clear_last_error_false_when_none():
 
 def test_should_clear_last_error_false_when_inside_visibility_window():
     now = time.time()
-    err = {'message': 'x', 'at': int(now - 60)}
+    err = {'message': 'x', 'at': int(now - 30)}
     assert daemon._should_clear_last_error(err, now) is False
 
 

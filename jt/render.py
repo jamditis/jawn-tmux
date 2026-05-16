@@ -37,7 +37,7 @@ def render_session_row(name: str, info: dict) -> str:
     return row + ('\n' + tail_lines if tail_lines else '')
 
 
-_ERROR_BANNER_FRESH_SECS = 300  # 5 min: highlight recent daemon errors prominently
+_ERROR_BANNER_FRESH_SECS = 60  # 1 min: highlight recent daemon errors prominently
 
 
 def _render_error_banner(data: dict) -> str | None:
