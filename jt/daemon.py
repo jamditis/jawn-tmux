@@ -13,7 +13,7 @@ from jt import tmux, state
 
 SILENCE_THRESHOLD = 20   # seconds, matches monitor-silence 20 in .tmux.conf
 POLL_INTERVAL = 2
-LAST_ERROR_VISIBILITY_SECS = 300  # 5 min: how long a recovered error stays in state.json
+LAST_ERROR_VISIBILITY_SECS = 60  # 1 min: how long a recovered error stays in state.json
 DEFAULT_HTTP_PORT = 6248
 DEFAULT_HTTP_BIND = '127.0.0.1'
 DEFAULT_OUTPUT_FILE_PREFIXES = ('claude_scheduled', 'codex_scheduled')

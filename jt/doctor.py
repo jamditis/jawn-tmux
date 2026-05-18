@@ -156,7 +156,7 @@ def _check_daemon_http() -> CheckResult:
     return ('ok', f'daemon responded at {url}')
 
 
-LAST_ERROR_FRESH_SECS = 300
+LAST_ERROR_FRESH_SECS = 60
 
 
 def _check_last_error() -> CheckResult:
