@@ -142,7 +142,7 @@ Added via `source-file ~/projects/jawn-tmux/tmux/jt.conf`:
 | `done` | `CLAUDE_TASK_COMPLETE:0` in scheduler log | `#484f58` dim gray |
 | `error` | Non-zero exit in marker | `#f85149` red |
 
-The `done`/`error` states read the `CLAUDE_TASK_COMPLETE:$EXIT_CODE` marker from `/tmp/<prefix>_<unix_ts>.txt`, where `<unix_ts>` matches the tmux session's creation time within 60 seconds. The daemon scans two prefixes by default — `claude_scheduled` (used by [claude-scheduler](https://github.com/jamditis/houseofjawn-bot)) and `codex_scheduled` (used by Codex CLI scheduler wrappers). Set `JT_OUTPUT_FILE_PREFIXES=claude_scheduled,codex_scheduled,my_runner` to add your own. Sessions without a matching log file only move between `active` and `silent`. The `main` session's border is never modified.
+The `done`/`error` states read the `CLAUDE_TASK_COMPLETE:$EXIT_CODE` marker from `/tmp/<prefix>_<unix_ts>.txt`, where `<unix_ts>` matches the tmux session's creation time within 60 seconds. The daemon scans two prefixes by default — `claude_scheduled` (used by a claude-scheduler wrapper) and `codex_scheduled` (used by Codex CLI scheduler wrappers). Set `JT_OUTPUT_FILE_PREFIXES=claude_scheduled,codex_scheduled,my_runner` to add your own. Sessions without a matching log file only move between `active` and `silent`. The `main` session's border is never modified.
 
 ## Multi-node setup
 
